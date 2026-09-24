@@ -64,6 +64,86 @@ static class Program
         // 식성 규칙
         run.Meat = 1; run.Fruit = 1;
         Check(!run.Feed(run.Party[1], FoodType.Meat) && run.Feed(run.Party[1], FoodType.Fruit), "초식은 열매만");
+
+        // §20-8 원석 = 시너지 해금, 중첩 없음
+        run.Fragments[Diet.Carnivore] = 3;
+        Check(!run.CanCraftGem(Diet.Carnivore), "이미 가진 원석은 다시 못 만듦");
+
+        SynergyTests();
+        EnemySkillTests();
+    }
+
+    static Battle SynergyBattle(Diet[] gems, params string[] allyIds)
+    {
+        var ctx = Ctx();
+        foreach (var d in gems) ctx.SynergyDiets.Add(d);
+        var allies = allyIds.Select(id => Unit.CreateAlly(SpeciesDb.Get(id))).ToList();
+        var foe = Unit.CreateEnemy(SpeciesDb.Get("rhino"), false, 1f); // 가장 느린 적 → 아군이 먼저 행동
+        return new Battle(allies, new List<Unit> { foe }, ctx);
+    }
+
+    static void SynergyTests()
+    {
+        // 무리사냥: 육식 2마리 → +16%
+        var none = SynergyBattle(new Diet[0], "lion", "leopard", "rabbit");
+        var pack = SynergyBattle(new[] { Diet.Carnivore }, "lion", "leopard", "rabbit");
+        float ratio = pack.Atk(pack.Allies[2]) / none.Atk(none.Allies[2]);
+        Check(Math.Abs(ratio - (1 + 2 * Balance.PackHuntAtkPerCarnivore)) < 0.001f, "무리사냥: 육식 2마리 → 공격 +16%");
+
+        // 적응: 파티 구성별 형태
+        Check(SynergyBattle(new[] { Diet.Omnivore }, "rabbit", "fox").CurrentAdapt() == Synergies.AdaptMode.HerbOmni, "적응: 초식+잡식");
+        Check(SynergyBattle(new[] { Diet.Omnivore }, "lion", "fox").CurrentAdapt() == Synergies.AdaptMode.CarnOmni, "적응: 육식+잡식");
+        Check(SynergyBattle(new[] { Diet.Omnivore }, "rabbit", "lion", "fox").CurrentAdapt() == Synergies.AdaptMode.All, "적응: 셋 다");
+        Check(SynergyBattle(new[] { Diet.Omnivore }, "rabbit", "lion").CurrentAdapt() == Synergies.AdaptMode.None, "적응: 잡식 없으면 비활성");
+        var solo = SynergyBattle(new[] { Diet.Omnivore }, "fox");
+        var foe = solo.Enemies[0];
+        float full = solo.PurifyChance(solo.Allies[0], foe);
+        Check(solo.CurrentAdapt() == Synergies.AdaptMode.OmniOnly && Math.Abs(full - 11f) < 0.01f, "적응(잡식뿐): 적 HP 50% 이상이면 정화 보너스 없음");
+        foe.Hp = foe.MaxHp / 4;
+        var soloNo = SynergyBattle(new Diet[0], "fox"); soloNo.Enemies[0].Hp = soloNo.Enemies[0].MaxHp / 4;
+        Check(Math.Abs(solo.PurifyChance(solo.Allies[0], foe) - soloNo.PurifyChance(soloNo.Allies[0], soloNo.Enemies[0]) - Balance.AdaptSoloPurify) < 0.01f,
+            "적응(잡식뿐): 적 HP 50% 미만이면 정화 +8%p");
+
+        // 생명의 순환: 초식 정화 성공 → 전원 배고픔 회복. 확률 95% 상한 상황을 여러 시드로 시도
+        bool restored = false;
+        for (int seed = 1; seed < 30 && !restored; seed++)
+        {
+            var ctx = Ctx(seed); ctx.SynergyDiets.Add(Diet.Herbivore);
+            var rabbit = Unit.CreateAlly(SpeciesDb.Get("rabbit")); var lion = Unit.CreateAlly(SpeciesDb.Get("turtle")); // 토끼보다 느린 동료
+            rabbit.Hunger = 50; lion.Hunger = 50;
+            var weak = Unit.CreateEnemy(SpeciesDb.Get("rhino"), false, 1f); weak.Hp = 1;
+            var b = new Battle(new List<Unit> { rabbit, lion }, new List<Unit> { weak }, ctx);
+            if (b.CurrentActor != rabbit) continue;
+            b.Submit(new BattleAction(ActionType.Purify, weak));
+            restored = weak.Fate == EnemyFate.Purified && lion.Hunger == 50 + Balance.CycleHungerRestore;
+        }
+        Check(restored, "생명의 순환: 초식 정화 성공 → 아군 배고픔 +4");
+    }
+
+    static void EnemySkillTests()
+    {
+        // 각 종이 적으로 나와도 예외 없이 100라운드 버티는지 + 스킬을 실제로 쓰는지
+        int skillEvents = 0;
+        foreach (var s in SpeciesDb.All.Values)
+        {
+            for (int seed = 0; seed < 20; seed++)
+            {
+                var tank = Unit.CreateAlly(SpeciesDb.Get("turtle")); tank.MaxHp = tank.Hp = 100000;
+                var mimicBait = Unit.CreateAlly(SpeciesDb.Get("rhino")); mimicBait.MaxHp = mimicBait.Hp = 100000;
+                var e1 = Unit.CreateEnemy(s, true, 1f); e1.MaxHp = e1.Hp = 100000;
+                var e2 = Unit.CreateEnemy(SpeciesDb.Get("rabbit"), false, 1f); e2.MaxHp = e2.Hp = 100000;
+                var b = new Battle(new List<Unit> { tank, mimicBait }, new List<Unit> { e1, e2 }, Ctx(seed));
+                for (int i = 0; i < 100 && b.Outcome == BattleOutcome.Ongoing; i++)
+                {
+                    var u = b.CurrentActor;
+                    var act = u.Species.Id == "rhino" && b.CanUseSkill(u, out _) ? new BattleAction(ActionType.Skill, e1) : new BattleAction(ActionType.Attack, e1);
+                    if (u.Hunger < 20) u.Hunger = 100;
+                    b.Submit(act);
+                    skillEvents += b.DrainEvents().Count(ev => ev.Actor == e1 && (ev.Type == BattleEventType.Skill || ev.Type == BattleEventType.Sustain || ev.Type == BattleEventType.Heal));
+                }
+            }
+        }
+        Check(skillEvents > 0, $"적 종별 스킬 사용 (스킬 이벤트 {skillEvents}회, 예외 없음)");
     }
 
     // ================= 자동 플레이 =================
@@ -113,6 +193,7 @@ static class Program
                 foreach (var r in run.OwnedRelics.Where(run.IsRelicEffective).ToList()) run.Equip(r);
                 run.ConfirmEquip(); break;
             case RunPhase.Map:
+                foreach (Diet d in new[] { Diet.Carnivore, Diet.Herbivore, Diet.Omnivore }) run.CraftGem(d);
                 var opts = run.NodeOptions();
                 run.EnterNode(rng.Pick(opts)); break;
             case RunPhase.Event:

@@ -41,7 +41,9 @@ namespace FedAndFound.Core
         public IRng Rng;
         public StageBuffs StageBuffs = new StageBuffs();
         public readonly List<RelicId> ConsumedRelics = new List<RelicId>(); // 런이 인벤토리에서 제거해야 할 소모형
+        public HashSet<Diet> SynergyDiets = new HashSet<Diet>(); // 원석으로 해금된 시너지 (§4.5, Data/Synergies.cs)
         public bool Has(RelicId r) => Relics.Contains(r);
+        public bool HasSynergy(Diet d) => SynergyDiets.Contains(d);
     }
 
     /// <summary>
@@ -85,7 +87,8 @@ namespace FedAndFound.Core
         /// <summary>§7: 정화 확률 = 저주 게이지 + 시전자 정화 효율 (+ 보너스). 0~100 (%).</summary>
         public float PurifyChance(Unit actor, Unit target, bool withIncense = false)
         {
-            float c = CurseGauge(target) + Purify(actor) + _roundPurifyBonus + (withIncense ? Balance.IncensePurifyBonus : 0);
+            float c = CurseGauge(target) + Purify(actor) + _roundPurifyBonus + (withIncense ? Balance.IncensePurifyBonus : 0)
+                + SynergyPurify(actor, target);
             return Math.Max(0, Math.Min(Balance.PurifyChanceCap, c));
         }
 
@@ -113,6 +116,10 @@ namespace FedAndFound.Core
 
         public bool CanUseRelic(RelicId r) =>
             Ctx.Has(r) && RelicDb.Get(r).Kind == RelicKind.Active && !_usedRelics.Contains(r);
+
+        /// <summary>적응(잡식 원석) 시너지의 현재 형태. 원석이 없으면 None. UI 표시용으로도 쓴다.</summary>
+        public Synergies.AdaptMode CurrentAdapt() =>
+            Ctx.HasSynergy(Diet.Omnivore) ? Synergies.Adapt(Allies.Where(x => x.Active)) : Synergies.AdaptMode.None;
 
         /// <summary>FR-1: 선제형 판정은 적 포함 전체 유닛 기준.</summary>
         public bool IsFirstActorThisRound(Unit u) => _queue.FirstOrDefault(x => x.Active) == u;
@@ -198,6 +205,11 @@ namespace FedAndFound.Core
             {
                 _bellBonus = 0;
                 RemoveEnemy(target, EnemyFate.Purified, $"{u}이(가) {target}의 저주를 풀었다! ({chance:0}%)");
+                if (Ctx.HasSynergy(Diet.Herbivore) && u.Species.Diet == Diet.Herbivore) // 생명의 순환
+                {
+                    foreach (var a in Allies.Where(x => x.Active)) a.AddHunger(Balance.CycleHungerRestore);
+                    Log(BattleEventType.Heal, u, null, Balance.CycleHungerRestore, $"생명의 순환: 아군 전체 배고픔 +{Balance.CycleHungerRestore}");
+                }
             }
             else
             {
@@ -312,17 +324,117 @@ namespace FedAndFound.Core
 
         int SustainCost() => Ctx.Has(RelicId.ThriftCharm) ? (int)Math.Ceiling(Balance.SustainCostPerTurn * Balance.ThriftMult) : Balance.SustainCostPerTurn;
 
+        // ================= 적 AI (5단계) =================
+
+        /// <summary>적 행동: 유지형은 HP가 줄면 켠다(행동 소모 X) → 확률로 종별 스킬 → 아니면 기본 공격(보스는 가끔 강타).
+        /// 적은 배고픔이 없으므로 코스트 대신 확률(Balance.EnemySkillChance)로 제한한다.</summary>
         void EnemyAct(Unit e)
         {
             var targets = Allies.Where(x => x.Active).ToList();
             if (targets.Count == 0) return;
-            // 오소리 악바리: 40% 유도
-            var taunter = targets.FirstOrDefault(x => x.SustainOn && x.Species.Skill.Id == SkillId.Tenacity);
-            var target = taunter != null && Rng.Chance(0.4f) ? taunter : Rng.Pick(targets);
-            // TODO(다음 단계): 적도 종별 스킬 사용. 지금은 기본공격 + 보스 강타만.
-            float coef = e.IsBoss && Rng.Chance(0.3f) ? 1.5f : 1f;
+            var skill = e.Species.Skill;
+
+            if (skill.Kind == SkillKind.Sustain && !e.SustainOn && e.HpRatio < Balance.EnemySustainHpThreshold)
+            {
+                e.SustainOn = true;
+                Log(BattleEventType.Sustain, e, null, 0, $"{e} {skill.Name} ON");
+            }
+
+            // 매복을 걸어 둔 상태면 이번 턴은 무조건 공격(×2.6이 실린다)
+            if (!e.ChargedReady && Rng.Chance(e.IsBoss ? Balance.BossSkillChance : Balance.EnemySkillChance) && TryEnemySkill(e, skill.Id, targets))
+                return;
+
+            var target = EnemyPickTarget(targets);
+            float coef = e.IsBoss && Rng.Chance(Balance.BossSmashChance) ? Balance.BossSmashCoef : 1f;
             if (coef > 1f) Log(BattleEventType.Skill, e, target, 0, $"{e} 강타!");
             DealDamage(e, target, coef, false);
+        }
+
+        Unit EnemyPickTarget(List<Unit> targets)
+        {
+            // 오소리 악바리: 40% 유도
+            var taunter = targets.FirstOrDefault(x => x.SustainOn && x.Species.Skill.Id == SkillId.Tenacity);
+            return taunter != null && Rng.Chance(0.4f) ? taunter : Rng.Pick(targets);
+        }
+
+        /// <summary>적이 쓸 수 있는 스킬이면 실행하고 true. 쓸 상황이 아니면 false(→ 기본 공격).
+        /// 효과는 아군 버전과 최대한 같게 하되, 적에게 의미 없는 스킬은 적 전용으로 바꿨다(달래기 = 적 회복).</summary>
+        bool TryEnemySkill(Unit e, SkillId id, List<Unit> targets)
+        {
+            switch (id)
+            {
+                case SkillId.Soothe:
+                {
+                    var hurt = Enemies.Where(x => x.Active && x.HpRatio < 0.8f).OrderBy(x => x.HpRatio).FirstOrDefault();
+                    if (hurt == null) return false;
+                    int amt = Math.Max(1, (int)Math.Round(hurt.MaxHp * Balance.EnemySootheHealRatio));
+                    hurt.Heal(amt);
+                    Log(BattleEventType.Heal, e, hurt, amt, $"{e} 달래기 → {hurt} HP {amt} 회복");
+                    return true;
+                }
+                case SkillId.Swerve:
+                    e.Evade = 0.4f; // BeginTurn에서 0으로 돌아가므로 자기 다음 차례까지 유지
+                    Log(BattleEventType.Skill, e, null, 0, $"{e} 급선회 — 다음 차례까지 회피 40%");
+                    return true;
+                case SkillId.Charge:
+                {
+                    var t = EnemyPickTarget(targets);
+                    Log(BattleEventType.Skill, e, t, 0, $"{e} 돌진!");
+                    DealDamage(e, t, 2.2f, true);
+                    return true;
+                }
+                case SkillId.Ambush:
+                    if (e.SkillUses >= e.Species.Skill.MaxUsesPerBattle) return false;
+                    e.SkillUses++; e.ChargedReady = true;
+                    Log(BattleEventType.Skill, e, null, 0, $"{e}이(가) 몸을 낮추고 노린다… (다음 공격 ×2.6, 방어 추천)");
+                    return true;
+                case SkillId.VenomBite:
+                {
+                    var t = EnemyPickTarget(targets);
+                    if (t.PoisonTurns > 0) return false;
+                    Log(BattleEventType.Skill, e, t, 0, $"{e} 독 물기!");
+                    DealDamage(e, t, 1.0f, false);
+                    if (t.Active) { t.PoisonTurns = 3; t.PoisonDmg = Math.Max(1, (int)Math.Round(Atk(e) * 0.25f)); }
+                    return true;
+                }
+                case SkillId.Wits:
+                {
+                    int me = _queue.IndexOf(e);
+                    var buddy = _queue.Skip(me + 1).FirstOrDefault(x => x.IsEnemy && x.Active && x != e);
+                    if (buddy == null) return false;
+                    MoveUp(buddy, 2);
+                    Log(BattleEventType.Skill, e, buddy, 0, $"{e} 눈치 → {buddy}의 차례를 앞당겼다");
+                    return true;
+                }
+                case SkillId.Mimic:
+                {
+                    // 원숭이는 파티가 마지막으로 쓴 액티브 스킬을 흉내 낸다
+                    var copy = _lastAllyActive;
+                    if (copy == null || copy.Id == SkillId.Mimic) return false;
+                    Log(BattleEventType.Skill, e, null, 0, $"{e} 모방 → {copy.Name}");
+                    if (TryEnemySkill(e, copy.Id, targets)) return true;
+                    Log(BattleEventType.Status, e, null, 0, "…하지만 흉내에 실패했다");
+                    return true;
+                }
+                case SkillId.Rampage:
+                {
+                    var t = EnemyPickTarget(targets);
+                    Log(BattleEventType.Skill, e, t, 0, $"{e} 저돌!");
+                    DealDamage(e, t, 1.8f, false);
+                    e.DefDownTurns = 1;
+                    return true;
+                }
+                case SkillId.Graze:
+                {
+                    var hurt = Enemies.Where(x => x.Active && x.HpRatio < 0.8f).OrderBy(x => x.HpRatio).FirstOrDefault();
+                    if (hurt == null) return false;
+                    int amt = (int)Math.Round(hurt.MaxHp * 0.2f);
+                    hurt.Heal(amt);
+                    Log(BattleEventType.Heal, e, hurt, amt, $"{e} 풀 뜯기 → {hurt} HP {amt} 회복");
+                    return true;
+                }
+                default: return false; // 유지형(위에서 처리)·패시브(광폭은 Atk에서 처리)
+            }
         }
 
         // ================= 피해 & 스탯 =================
@@ -331,6 +443,9 @@ namespace FedAndFound.Core
         {
             if (dst.Evade > 0 && Rng.Chance(dst.Evade)) { Log(BattleEventType.Miss, src, dst, 0, $"{dst}이(가) 피했다!"); return; }
             float atk = Atk(src) * coef * extraMult;
+            // 적응(잡식뿐): 적 HP 50% 이상이면 공격 보너스
+            if (!src.IsEnemy && dst.IsEnemy && dst.HpRatio >= 0.5f && CurrentAdapt() == Synergies.AdaptMode.OmniOnly)
+                atk *= 1 + Balance.AdaptSoloAtk;
             if (src.ChargedReady) { atk *= 2.6f; src.ChargedReady = false; }
             float def = ignoreDef ? 0 : Def(dst);
             float dmg = atk * Balance.DefenseK / (Balance.DefenseK + def);
@@ -412,8 +527,9 @@ namespace FedAndFound.Core
         public float Atk(Unit u)
         {
             float v = u.BaseAtk * (1 + u.PermanentBonus) * StarveMult(u);
-            if (u.IsEnemy) return v;
-            float bonus = Ctx.StageBuffs.Atk;
+            if (u.IsEnemy)
+                return u.Species.Skill.Id == SkillId.Frenzy && u.HpRatio < Balance.EnemyFrenzyHpThreshold ? v * Balance.EnemyFrenzyAtkMult : v;
+            float bonus = Ctx.StageBuffs.Atk + SynergyAtk();
             if (u.Species.Skill.Id == SkillId.Frenzy) bonus += 0.8f * HungerDeficit(u);
             if (Ctx.Has(RelicId.HeatedFang)) bonus += Math.Min(Balance.FangAtkCap, Balance.FangAtkPerRound * (Round - 1));
             if (Ctx.Has(RelicId.SealedClaw)) bonus += Balance.SealedClawAtk;
@@ -434,6 +550,30 @@ namespace FedAndFound.Core
             if (Ctx.Has(RelicId.ClearingSpring)) v += Math.Min(Balance.SpringPurifyCap, Balance.SpringPurifyPerRound * (Round - 1));
             if (Ctx.Has(RelicId.SealedClaw)) v += Balance.SealedClawPurify;
             return v;
+        }
+
+        /// <summary>무리사냥 + 적응(대상 무관한 부분)의 공격 보너스 합.</summary>
+        float SynergyAtk()
+        {
+            float b = 0;
+            if (Ctx.HasSynergy(Diet.Carnivore))
+                b += Balance.PackHuntAtkPerCarnivore * Allies.Count(x => x.Active && x.Species.Diet == Diet.Carnivore);
+            var m = CurrentAdapt();
+            if (m == Synergies.AdaptMode.CarnOmni) b += Balance.AdaptAtk;
+            else if (m == Synergies.AdaptMode.All) b += Balance.AdaptAllAtk;
+            return b;
+        }
+
+        float SynergyPurify(Unit actor, Unit target)
+        {
+            if (actor == null || actor.IsEnemy) return 0;
+            switch (CurrentAdapt())
+            {
+                case Synergies.AdaptMode.HerbOmni: return Balance.AdaptPurify;
+                case Synergies.AdaptMode.All: return Balance.AdaptAllPurify;
+                case Synergies.AdaptMode.OmniOnly: return target != null && target.HpRatio < 0.5f ? Balance.AdaptSoloPurify : 0;
+                default: return 0;
+            }
         }
 
         void Log(BattleEventType t, Unit a, Unit tg, int v, string text) =>

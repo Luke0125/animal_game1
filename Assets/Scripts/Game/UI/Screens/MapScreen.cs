@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using FedAndFound.Core;
 using FedAndFound.Game.Field;
 using UnityEngine;
@@ -21,6 +23,7 @@ namespace FedAndFound.Game.UI.Screens
             UIFactory.Label(layout, $"{run.Stage}스테이지 — {RunState.TerrainName(run.Terrain)}  (이동 {run.NodesMoved}/{RunState.NodesBeforeBoss})", 26, TextAnchor.MiddleCenter, bold: true);
             UIFactory.Label(layout, $"고기 {run.Meat}  열매 {run.Fruit}   조각(초/육/잡) {run.Fragments[Diet.Herbivore]}/{run.Fragments[Diet.Carnivore]}/{run.Fragments[Diet.Omnivore]}  만능 {run.UniversalFragments}   원석(초/육/잡) {run.Gems[Diet.Herbivore]}/{run.Gems[Diet.Carnivore]}/{run.Gems[Diet.Omnivore]}",
                 17, TextAnchor.MiddleCenter, Theme.TextDim);
+            UIFactory.Label(layout, SynergySummary(run, null), 16, TextAnchor.MiddleCenter, Theme.Selected);
 
             var partyRow = UIFactory.HGroup(layout, 8);
             UIFactory.FixedHeight(partyRow, 70);
@@ -45,7 +48,42 @@ namespace FedAndFound.Game.UI.Screens
             var gemRow = UIFactory.HGroup(bl, 10);
             UIFactory.FixedHeight(gemRow, 40);
             foreach (Diet d in new[] { Diet.Herbivore, Diet.Carnivore, Diet.Omnivore })
-                UIFactory.Button(gemRow, $"{SpeciesSelectScreen.DietName(d)} 원석 제작 (조각 3)", () => gm.CraftGem(d), interactable: run.CanCraftGem(d), fontSize: 16);
+            {
+                string label = run.HasSynergy(d)
+                    ? $"[해금] {Synergies.SkillName(d)}"
+                    : $"{Synergies.GemName(d)} 제작 → {Synergies.SkillName(d)} (조각 3)";
+                UIFactory.Button(gemRow, label, () => gm.CraftGem(d), interactable: run.CanCraftGem(d), fontSize: 15);
+            }
+            // 아직 없는 시너지의 효과를 미리 보여 줘야 어떤 원석을 먼저 만들지 고를 수 있다
+            var locked = new[] { Diet.Herbivore, Diet.Carnivore, Diet.Omnivore }.Where(d => !run.HasSynergy(d)).ToList();
+            if (locked.Count > 0)
+                UIFactory.Label(bl, string.Join("   ", locked.Select(d => $"{Synergies.SkillName(d)}: {ShortDesc(d)}")), 13, TextAnchor.MiddleCenter, Theme.TextDim);
+        }
+
+        static string ShortDesc(Diet d) => d switch
+        {
+            Diet.Carnivore => $"육식 1마리당 공격 +{Balance.PackHuntAtkPerCarnivore * 100:0}%",
+            Diet.Herbivore => $"초식 정화 성공 시 전원 배고픔 +{Balance.CycleHungerRestore}",
+            _ => "잡식이 있을 때 파티 구성 따라 공격/정화↑",
+        };
+
+        /// <summary>해금된 시너지 한 줄 요약. 전투 중이면 그 전투의 실제 형태(적응 모드)를 보여 준다.</summary>
+        public static string SynergySummary(RunState run, Battle battle)
+        {
+            var parts = new List<string>();
+            if (run.HasSynergy(Diet.Carnivore))
+            {
+                int n = battle != null ? battle.Allies.Count(a => a.Active && a.Species.Diet == Diet.Carnivore)
+                                       : run.Party.Count(a => !a.Fainted && a.Species.Diet == Diet.Carnivore);
+                parts.Add($"무리사냥 +{n * Balance.PackHuntAtkPerCarnivore * 100:0}%");
+            }
+            if (run.HasSynergy(Diet.Herbivore)) parts.Add("생명의 순환");
+            if (run.HasSynergy(Diet.Omnivore))
+            {
+                var mode = battle != null ? battle.CurrentAdapt() : Synergies.Adapt(run.Party.Where(a => !a.Fainted));
+                parts.Add($"적응({Synergies.AdaptName(mode)})");
+            }
+            return parts.Count == 0 ? "시너지 없음 — 조각 3개로 원석을 만들면 시너지 스킬이 해금된다" : "시너지: " + string.Join(" · ", parts);
         }
 
         /// <summary>버튼으로 고른 노드도 필드에서 말이 걸어간 뒤 진입한다. 필드가 없거나 걸을 수 없으면 바로 진입.</summary>

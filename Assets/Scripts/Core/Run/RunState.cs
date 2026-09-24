@@ -172,6 +172,7 @@ namespace FedAndFound.Core
             }
 
             var ctx = new BattleContext { Terrain = Terrain, Rng = Rng, StageBuffs = StageBuffs };
+            foreach (var kv in Gems) if (kv.Value > 0) ctx.SynergyDiets.Add(kv.Key); // 원석 시너지 (§4.5)
             foreach (var r in EquippedRelics.Where(IsRelicEffective)) ctx.Relics.Add(r);
             CurrentBattle = new Battle(Party.Where(p => !p.Fainted).ToList(), enemies, ctx);
             Phase = RunPhase.Battle;
@@ -230,7 +231,10 @@ namespace FedAndFound.Core
 
         // ================= 조각 → 원석 (§8, FR-6) =================
 
-        public bool CanCraftGem(Diet d) => Fragments[d] + UniversalFragments >= Balance.FragmentsPerGem;
+        /// <summary>원석은 식성별 1개면 시너지가 해금되고 중첩되지 않으므로, 이미 가진 식성은 다시 만들 수 없다(조각 낭비 방지).</summary>
+        public bool CanCraftGem(Diet d) => !HasSynergy(d) && Fragments[d] + UniversalFragments >= Balance.FragmentsPerGem;
+
+        public bool HasSynergy(Diet d) => Gems[d] > 0;
 
         /// <summary>같은 식성 조각을 먼저 쓰고, 부족분만 만능 조각으로 채운다.</summary>
         public bool CraftGem(Diet d)

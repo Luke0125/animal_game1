@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using FedAndFound.Core;
 using UnityEngine;
@@ -17,6 +18,7 @@ namespace FedAndFound.Game.UI.Screens
             UIFactory.Stretch(layout);
 
             UIFactory.Label(layout, $"{gm.Run.Stage}스테이지 라운드 {battle.Round}", 22, TextAnchor.MiddleCenter, bold: true);
+            UIFactory.Label(layout, MapScreen.SynergySummary(gm.Run, battle), 15, TextAnchor.MiddleCenter, Theme.Selected);
             TurnQueueRow(layout, battle);
 
             var domain = TargetDomain(gm, battle);
@@ -72,7 +74,7 @@ namespace FedAndFound.Game.UI.Screens
         {
             string status = e.Fate == EnemyFate.Defeated ? " (처치됨)" : e.Fate == EnemyFate.Purified ? " (정화됨)" : e.Fainted ? " (기절)" : "";
             string purify = gm.PendingAction == ActionType.Purify && e.Active ? $"  정화 {battle.PurifyChance(battle.CurrentActor, e, gm.PendingRelic == RelicId.PurifyIncense):0}%" : "";
-            string label = $"{e}  {e.Hp}/{e.MaxHp}{purify}{status}";
+            string label = $"{e}  {e.Hp}/{e.MaxHp}{purify}{status}{(e.Active ? EnemyTags(e) : "")}";
 
             if (domain == SkillTarget.Enemy && e.Active)
                 UIFactory.Button(parent, label, () => gm.SubmitBattleAction(gm.PendingAction.Value, e), bg: Theme.Danger, fontSize: 18);
@@ -82,6 +84,18 @@ namespace FedAndFound.Game.UI.Screens
                 UIFactory.Label(row, label, 18, TextAnchor.MiddleLeft, e.Active ? Theme.Text : Theme.TextDim);
                 UIFactory.Bar(row, e.HpRatio, e.HpRatio > 0.3f ? Theme.HpBar : Theme.HpBarLow);
             }
+        }
+
+        /// <summary>적의 스킬 상태 표시(5단계 적 AI) — 매복처럼 예고가 있어야 방어로 대응할 수 있다.</summary>
+        static string EnemyTags(Unit e)
+        {
+            var tags = new List<string>();
+            if (e.ChargedReady) tags.Add("노리는 중!");
+            if (e.SustainOn) tags.Add(e.Species.Skill.Name);
+            if (e.Evade > 0) tags.Add("회피");
+            if (e.PoisonTurns > 0) tags.Add($"독 {e.PoisonTurns}");
+            if (e.DefDownTurns > 0) tags.Add("방어↓");
+            return tags.Count == 0 ? "" : "  [" + string.Join(", ", tags) + "]";
         }
 
         static void AllyCard(Transform parent, GameManager gm, Battle battle, Unit a, SkillTarget? domain)
@@ -95,6 +109,7 @@ namespace FedAndFound.Game.UI.Screens
             var v = UIFactory.VGroup(card, 2, new RectOffset(6, 6, 4, 4));
             UIFactory.Stretch(v);
             string tag = a.Fainted ? "(기절)" : a.Defending ? "(방어)" : a.SustainOn ? "(유지)" : "";
+            if (!a.Fainted && a.PoisonTurns > 0) tag += $"(독 {a.PoisonTurns})"; // 적 뱀 독 물기(5단계)
             UIFactory.Label(v, $"{a.Name} {tag}", 15, TextAnchor.MiddleCenter);
             UIFactory.Bar(v, a.HpRatio, a.HpRatio > 0.3f ? Theme.HpBar : Theme.HpBarLow, $"{a.Hp}/{a.MaxHp}", 11);
             UIFactory.Bar(v, (float)a.Hunger / Balance.MaxHunger, Theme.HungerBar, $"배고픔 {a.Hunger}", 11);

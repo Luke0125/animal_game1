@@ -59,5 +59,20 @@ namespace FedAndFound.Core
         public const float BeastClawMult = 1.5f;
         public const float IncensePurifyBonus = 15f;
         public const float GuardShellMult = 0.5f;
+
+        // 원석 시너지 (§4.5, §20-8 팀 확정안) — 수치는 제안값
+        public const float PackHuntAtkPerCarnivore = 0.08f;  // 무리사냥: 육식 1마리당 아군 전체 ATK +8%
+        public const int CycleHungerRestore = 4;             // 생명의 순환: 초식 정화 성공마다 아군 전체 배고픔 +4
+        public const float AdaptPurify = 10f;                // 적응 초식+잡식
+        public const float AdaptAtk = 0.12f;                 // 적응 육식+잡식
+        public const float AdaptAllAtk = 0.06f, AdaptAllPurify = 5f; // 적응 셋 다
+        public const float AdaptSoloAtk = 0.12f, AdaptSoloPurify = 8f; // 적응 잡식뿐: 적 HP 50% 기준
+
+        // 적 스킬 AI (5단계) — 적은 배고픔이 없으므로 확률로 스킬을 쓴다
+        public const float EnemySkillChance = 0.3f, BossSkillChance = 0.45f;
+        public const float BossSmashChance = 0.3f, BossSmashCoef = 1.5f; // 스킬을 안 쓸 때 보스 강타
+        public const float EnemySustainHpThreshold = 0.6f;   // 적 유지형은 HP가 이 비율 아래로 떨어지면 켠다
+        public const float EnemySootheHealRatio = 0.15f;     // 적 토끼 달래기 = 다친 적 1명 회복
+        public const float EnemyFrenzyAtkMult = 1.3f, EnemyFrenzyHpThreshold = 0.5f; // 적 사자 광폭
     }
 }
