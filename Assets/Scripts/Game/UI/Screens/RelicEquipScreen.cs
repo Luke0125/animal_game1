@@ -26,7 +26,7 @@ namespace FedAndFound.Game.UI.Screens
                 UIFactory.FixedHeight(row, 46);
                 string label = (equipped ? "[장착] " : "") + $"{data.Name} — {data.Desc}" + (effective ? "" : " (지형 불일치)");
                 var color = !effective ? Theme.Disabled : equipped ? Theme.Selected : Theme.PanelLight;
-                UIFactory.Button(row, label, () => equipped ? gm.UnequipRelic(r) : gm.EquipRelic(r),
+                UIFactory.Button(row, label, () => { if (equipped) gm.UnequipRelic(r); else gm.EquipRelic(r); },
                     interactable: equipped || run.EquippedRelics.Count < run.RelicSlots, bg: color, fontSize: 17);
             }
 
