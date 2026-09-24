@@ -22,3 +22,4 @@ crashlytics-buildsettings.properties
 # dotnet 검증 프로젝트
 Tests/**/bin/
 Tests/**/obj/
+.DS_Store
