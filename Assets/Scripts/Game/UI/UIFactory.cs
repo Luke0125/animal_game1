@@ -115,7 +115,9 @@ namespace FedAndFound.Game.UI
             var scroll = rt.gameObject.AddComponent<ScrollRect>();
             scroll.horizontal = false; scroll.vertical = true;
 
-            var viewport = Panel(rt, "Viewport", new Color(0, 0, 0, 0));
+            // Mask는 알파값으로 내부를 잘라내므로 완전 투명(alpha 0)이면 내용까지 통째로 사라진다.
+            // showMaskGraphic=false로 사각형 자체는 안 보이게 하고, 알파는 반드시 1로 둔다.
+            var viewport = Panel(rt, "Viewport", Color.white);
             viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
             var content = VGroup(viewport, 4, new RectOffset(2, 2, 2, 2));
