@@ -71,6 +71,7 @@ static class Program
 
         SynergyTests();
         EnemySkillTests();
+        EventTests();
     }
 
     static Battle SynergyBattle(Diet[] gems, params string[] allyIds)
@@ -118,6 +119,53 @@ static class Program
             restored = weak.Fate == EnemyFate.Purified && lion.Hunger == 50 + Balance.CycleHungerRestore;
         }
         Check(restored, "생명의 순환: 초식 정화 성공 → 아군 배고픔 +4");
+    }
+
+    /// <summary>이벤트는 무작위라 사람이 전부 확인하기 어렵다 → 모든 이벤트의 모든 선택지를 강제로 한 번씩 실행.</summary>
+    static void EventTests()
+    {
+        int tried = 0, errors = 0;
+        for (int i = 0; i < RandomEvent.Count; i++)
+        {
+            int options = RandomEvent.Create(i).Options.Count;
+            for (int o = 0; o < options; o++)
+            {
+                foreach (bool rich in new[] { true, false })
+                    for (int seed = 0; seed < 10; seed++)
+                    {
+                        try
+                        {
+                            var run = new RunState(new[] { "lion", "rabbit", "fox" }, seed, skipTutorial: true);
+                            run.ConfirmEquip();
+                            if (rich) { run.Meat = 5; run.Fruit = 5; }
+                            run.ForcedEventIndex = i;
+                            run.EnterNode(NodeType.Event);
+                            var ev = run.CurrentEvent;
+                            if (ev.Title != RandomEvent.Create(i).Title) throw new Exception("강제 이벤트가 아님");
+                            if (!ev.Options[o].CanChoose(run)) continue; // 가난한 경우 못 고르는 선택지는 건너뜀
+                            int meat = run.Meat, fruit = run.Fruit;
+                            string result = run.ChooseEventOption(o);
+                            tried++;
+                            if (string.IsNullOrEmpty(result)) throw new Exception("결과 문구 없음");
+                            if (run.Phase != RunPhase.Map) throw new Exception("이벤트 후 맵으로 안 돌아감");
+                            if (run.Meat < 0 || run.Fruit < 0) throw new Exception("음식이 음수");
+                            if (run.Party.Any(a => a.Hp < 0 || a.Hunger < 0)) throw new Exception("HP/배고픔 음수");
+                        }
+                        catch (Exception e)
+                        {
+                            if (errors++ < 3) Console.WriteLine($"  이벤트 {i} 선택지 {o}: {e.Message}");
+                        }
+                    }
+            }
+        }
+        Check(errors == 0 && tried > 0, $"이벤트 {RandomEvent.Count}종 모든 선택지 실행 ({tried}회, 오류 {errors})");
+
+        // 이벤트 무제한 디버그 플래그
+        var r2 = new RunState(new[] { "lion", "rabbit", "fox" }, 3, skipTutorial: true);
+        r2.ConfirmEquip();
+        r2.DebugUnlimitedEvents = true;
+        r2.EnterNode(NodeType.Event); r2.ChooseEventOption(r2.CurrentEvent.Options.Count - 1);
+        Check(r2.NodeOptions().Contains(NodeType.Event), "디버그: 이벤트 무제한이면 이벤트 노드가 다시 열림");
     }
 
     static void EnemySkillTests()

@@ -32,6 +32,10 @@ namespace FedAndFound.Core
         public RunPhase Phase { get; private set; }
         public bool RestedThisStop { get; private set; }
 
+        // 테스트·데모용(7단계 데모 모드의 씨앗). 일반 플레이에서는 건드리지 않는다.
+        public int? ForcedEventIndex;        // 다음 이벤트 노드에서 무작위 대신 이 이벤트를 연다
+        public bool DebugUnlimitedEvents;    // true면 스테이지당 이벤트 1회 제한을 풀어 이벤트를 연달아 확인할 수 있다
+
         public int Meat, Fruit;
         public readonly Dictionary<Diet, int> Fragments = new Dictionary<Diet, int> { { Diet.Herbivore, 0 }, { Diet.Carnivore, 0 }, { Diet.Omnivore, 0 } };
         public int UniversalFragments;
@@ -118,7 +122,7 @@ namespace FedAndFound.Core
             if (Phase != RunPhase.Map) return new List<NodeType>();
             if (NodesMoved >= NodesBeforeBoss) return new List<NodeType> { NodeType.Boss };
             var list = new List<NodeType> { NodeType.Mob };
-            if (!EventUsed) list.Add(NodeType.Event);
+            if (!EventUsed || DebugUnlimitedEvents) list.Add(NodeType.Event);
             return list;
         }
 
@@ -133,7 +137,8 @@ namespace FedAndFound.Core
             if (node == NodeType.Event)
             {
                 EventUsed = true;
-                CurrentEvent = RandomEvent.Roll(Rng);
+                CurrentEvent = ForcedEventIndex is int fi ? RandomEvent.Create(fi) : RandomEvent.Roll(Rng);
+                ForcedEventIndex = null;
                 Phase = RunPhase.Event;
             }
             else StartBattle(boss: false);

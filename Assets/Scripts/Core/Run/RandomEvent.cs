@@ -128,5 +128,9 @@ namespace FedAndFound.Core
         static string DietName(Diet d) => d == Diet.Herbivore ? "초식" : d == Diet.Carnivore ? "육식" : "잡식";
 
         public static RandomEvent Roll(IRng rng) => rng.Pick(Pool)();
+
+        // 테스트·데모용: 특정 이벤트를 골라 만들기 (CoreSim 전수 검사, 에디터 테스트 패널)
+        public static int Count => Pool.Count;
+        public static RandomEvent Create(int index) => Pool[index]();
     }
 }

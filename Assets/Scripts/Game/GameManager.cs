@@ -18,6 +18,8 @@ namespace FedAndFound.Game
         public ActionType? PendingAction { get; private set; }
         public RelicId? PendingRelic { get; private set; }
         public string LastError { get; private set; }
+        /// <summary>방금 고른 이벤트 선택지의 결과 문구. 맵 화면에 보여 주고, 다음 노드에 들어가면 지운다.</summary>
+        public string LastEventResult { get; private set; }
         /// <summary>전투 이벤트를 한 줄씩 재생하는 동안 true. 이 동안은 화면에서 행동 입력을 잠근다(§3단계 연출).</summary>
         public bool Animating { get; private set; }
         const float EventDelay = 0.22f;
@@ -56,7 +58,7 @@ namespace FedAndFound.Game
 
         public void ResetToSpeciesSelect()
         {
-            Run = null; _lastBattleSeen = null; BattleLog.Clear();
+            Run = null; _lastBattleSeen = null; BattleLog.Clear(); LastEventResult = null;
             PendingAction = null; PendingRelic = null; LastError = null;
             Refresh();
         }
@@ -69,8 +71,14 @@ namespace FedAndFound.Game
 
         // ================= 맵 =================
 
-        public void EnterNode(NodeType n) { Run.EnterNode(n); Refresh(); }
-        public void ChooseEvent(int i) { Run.ChooseEventOption(i); Refresh(); }
+        public void EnterNode(NodeType n) { LastEventResult = null; Run.EnterNode(n); Refresh(); }
+        public void ChooseEvent(int i) { LastEventResult = Run.ChooseEventOption(i); Refresh(); }
+
+        // ================= 테스트용 (에디터/개발 빌드에서만 맵 화면에 노출) =================
+
+        /// <summary>다음 이벤트 노드에서 i번 이벤트가 나오게 예약. 실제 진입은 평소처럼 노드로 걸어가서 한다.</summary>
+        public void DebugForceEvent(int i) { Run.ForcedEventIndex = i; Refresh(); }
+        public void DebugToggleUnlimitedEvents() { Run.DebugUnlimitedEvents = !Run.DebugUnlimitedEvents; Refresh(); }
         public void CraftGem(Diet d) { Run.CraftGem(d); Refresh(); }
 
         // ================= 전투 =================

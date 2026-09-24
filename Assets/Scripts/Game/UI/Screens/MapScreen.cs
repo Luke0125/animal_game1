@@ -34,8 +34,11 @@ namespace FedAndFound.Game.UI.Screens
             var bl = UIFactory.VGroup(bottom, 6, new RectOffset(24, 24, 8, 8));
             UIFactory.Stretch(bl);
 
-            UIFactory.Label(bl, "방향키/WASD로 길을 따라 걷기 · 필드의 노드를 클릭하면 자동 이동 · 반짝이는 노드에 도착하면 진입",
-                15, TextAnchor.MiddleCenter, Theme.TextDim);
+            if (gm.LastEventResult != null)
+                UIFactory.Label(bl, "이벤트 결과: " + gm.LastEventResult, 17, TextAnchor.MiddleCenter, Theme.Selected);
+            else
+                UIFactory.Label(bl, "방향키/WASD로 길을 따라 걷기 · 필드의 노드를 클릭하면 자동 이동 · 반짝이는 노드에 도착하면 진입",
+                    15, TextAnchor.MiddleCenter, Theme.TextDim);
 
             var nodeRow = UIFactory.HGroup(bl, 12);
             UIFactory.FixedHeight(nodeRow, 48);
@@ -44,6 +47,8 @@ namespace FedAndFound.Game.UI.Screens
                 var node = n;
                 UIFactory.Button(nodeRow, NodeLabel(node), () => GoToNode(gm, node), bg: node == NodeType.Boss ? Theme.Danger : Theme.PanelLight, fontSize: 20);
             }
+
+            if (Debug.isDebugBuild) DebugEventPanel(root, gm); // 에디터·개발 빌드 전용 (정식 빌드에서는 안 보임)
 
             var gemRow = UIFactory.HGroup(bl, 10);
             UIFactory.FixedHeight(gemRow, 40);
@@ -84,6 +89,28 @@ namespace FedAndFound.Game.UI.Screens
                 parts.Add($"적응({Synergies.AdaptName(mode)})");
             }
             return parts.Count == 0 ? "시너지 없음 — 조각 3개로 원석을 만들면 시너지 스킬이 해금된다" : "시너지: " + string.Join(" · ", parts);
+        }
+
+        /// <summary>이벤트는 무작위라 원하는 걸 확인하기 어렵다 → 에디터/개발 빌드에서만 오른쪽에 테스트 패널을 띄운다.
+        /// 이벤트를 고르면 "다음 이벤트 노드"에 예약되고, 평소처럼 ? 노드로 걸어가면 그 이벤트가 열린다.</summary>
+        static void DebugEventPanel(RectTransform root, GameManager gm)
+        {
+            var run = gm.Run;
+            var panel = UIFactory.Panel(root, "DebugEvents", new Color(0.3f, 0.1f, 0.3f, 0.85f));
+            UIFactory.Stretch(panel, new Vector2(0.84f, 0.2f), new Vector2(1f, 0.79f));
+            var v = UIFactory.VGroup(panel, 4, new RectOffset(8, 8, 8, 8));
+            UIFactory.Stretch(v);
+            UIFactory.Label(v, "[테스트] 이벤트 고르기", 15, TextAnchor.MiddleCenter, bold: true);
+            UIFactory.Button(v, $"이벤트 무제한: {(run.DebugUnlimitedEvents ? "ON" : "OFF")}", gm.DebugToggleUnlimitedEvents,
+                bg: run.DebugUnlimitedEvents ? Theme.Accent : Theme.PanelLight, fontSize: 14);
+            for (int i = 0; i < RandomEvent.Count; i++)
+            {
+                int idx = i;
+                bool chosen = run.ForcedEventIndex == i;
+                UIFactory.Button(v, (chosen ? "[예약] " : "") + RandomEvent.Create(i).Title, () => gm.DebugForceEvent(idx),
+                    bg: chosen ? Theme.Selected : Theme.PanelLight, fontSize: 14);
+            }
+            UIFactory.Label(v, run.NodeOptions().Contains(NodeType.Event) ? "고른 뒤 ? 노드로 이동" : "이번 스테이지 이벤트 사용함\n→ 무제한 ON", 13, TextAnchor.MiddleCenter, Theme.TextDim);
         }
 
         /// <summary>버튼으로 고른 노드도 필드에서 말이 걸어간 뒤 진입한다. 필드가 없거나 걸을 수 없으면 바로 진입.</summary>
