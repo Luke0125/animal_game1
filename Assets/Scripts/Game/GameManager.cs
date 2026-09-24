@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using FedAndFound.Core;
@@ -17,9 +18,14 @@ namespace FedAndFound.Game
         public ActionType? PendingAction { get; private set; }
         public RelicId? PendingRelic { get; private set; }
         public string LastError { get; private set; }
+        /// <summary>전투 이벤트를 한 줄씩 재생하는 동안 true. 이 동안은 화면에서 행동 입력을 잠근다(§3단계 연출).</summary>
+        public bool Animating { get; private set; }
+        const float EventDelay = 0.22f;
 
         Battle _lastBattleSeen;
         public event Action OnChanged;
+        /// <summary>전투 이벤트가 한 줄씩 재생될 때마다 발생. 화면 전체를 다시 그리지 않는 연출(화면 플래시 등)이 구독한다.</summary>
+        public event Action<BattleEvent> OnBattleEvent;
 
         void Awake()
         {
@@ -69,17 +75,9 @@ namespace FedAndFound.Game
 
         // ================= 전투 =================
 
-        void DrainLog()
-        {
-            foreach (var e in Run.CurrentBattle.DrainEvents())
-            {
-                BattleLog.Add(e.Text);
-                if (BattleLog.Count > 30) BattleLog.RemoveAt(0);
-            }
-        }
-
         public void SetPendingAction(ActionType type)
         {
+            if (Animating) return;
             if (type == ActionType.Defend) { SubmitBattleAction(ActionType.Defend, null); return; }
             if (type == ActionType.Skill)
             {
@@ -90,29 +88,48 @@ namespace FedAndFound.Game
             PendingAction = type; Refresh();
         }
 
-        public void CancelPending() { PendingAction = null; PendingRelic = null; Refresh(); }
+        public void CancelPending() { if (Animating) return; PendingAction = null; PendingRelic = null; Refresh(); }
 
-        public void ToggleRelic(RelicId r) { PendingRelic = PendingRelic == r ? (RelicId?)null : r; Refresh(); }
+        public void ToggleRelic(RelicId r) { if (Animating) return; PendingRelic = PendingRelic == r ? (RelicId?)null : r; Refresh(); }
 
         public void SubmitBattleAction(ActionType type, Unit target)
         {
+            if (Animating) return;
             var relic = PendingRelic;
             PendingAction = null; PendingRelic = null;
-            try { Run.CurrentBattle.Submit(new BattleAction(type, target, relic)); }
-            catch (Exception e) { BattleLog.Add($"[오류] {e.Message}"); }
-            DrainLog();
-            Refresh();
+            List<BattleEvent> events;
+            try { Run.CurrentBattle.Submit(new BattleAction(type, target, relic)); events = Run.CurrentBattle.DrainEvents(); }
+            catch (Exception e) { BattleLog.Add($"[오류] {e.Message}"); Refresh(); return; }
+            StartCoroutine(PlayEvents(events));
         }
 
         public void ToggleSustain(Unit u)
         {
+            if (Animating) return;
             Run.CurrentBattle.SetSustain(u, !u.SustainOn);
-            DrainLog();
+            StartCoroutine(PlayEvents(Run.CurrentBattle.DrainEvents()));
+        }
+
+        /// <summary>드레인된 전투 이벤트를 한 줄씩 로그에 얹으며 짧게 멈춘다 — 3단계 "이벤트 재생 큐".
+        /// 재생 중에는 Animating이 true라 BattleScreen이 행동 버튼을 그리지 않는다.</summary>
+        IEnumerator PlayEvents(List<BattleEvent> events)
+        {
+            Animating = true;
+            foreach (var e in events)
+            {
+                BattleLog.Add(e.Text);
+                if (BattleLog.Count > 30) BattleLog.RemoveAt(0);
+                OnBattleEvent?.Invoke(e);
+                Refresh();
+                yield return new WaitForSeconds(EventDelay);
+            }
+            Animating = false;
             Refresh();
         }
 
         public void FinishBattleAndContinue()
         {
+            if (Animating) return;
             Run.FinishBattle();
             BattleLog.Clear();
             Refresh();

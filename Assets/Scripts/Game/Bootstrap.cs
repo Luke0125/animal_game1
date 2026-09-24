@@ -43,6 +43,9 @@ namespace FedAndFound.Game
             var gmGo = new GameObject("GameManager");
             var gm = gmGo.AddComponent<GameManager>();
             gmGo.AddComponent<ScreenRouter>().Init(gm, (RectTransform)screenRoot.transform);
+
+            // ScreenRoot보다 나중에 만들어야 화면 갱신으로 지워지는 UI 위에 플래시가 겹쳐 보인다.
+            UI.EventFeedOverlay.Create(canvasGo.transform, gm);
         }
     }
 }

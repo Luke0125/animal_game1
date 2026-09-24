@@ -131,6 +131,16 @@ namespace FedAndFound.Game.UI
             return content;
         }
 
+        /// <summary>ScrollList의 content를 가장 아래(최신 내용)로 스크롤한다. 레이아웃이 이번 프레임에
+        /// 아직 갱신되지 않았을 수 있어 강제로 한 번 갱신시킨 뒤 위치를 맞춘다.</summary>
+        public static void ScrollToBottom(RectTransform content)
+        {
+            var sr = content.GetComponentInParent<ScrollRect>();
+            if (sr == null) return;
+            Canvas.ForceUpdateCanvases();
+            sr.verticalNormalizedPosition = 0f;
+        }
+
         public static void FixedHeight(RectTransform rt, float h)
         {
             var le = rt.gameObject.GetComponent<LayoutElement>() ?? rt.gameObject.AddComponent<LayoutElement>();

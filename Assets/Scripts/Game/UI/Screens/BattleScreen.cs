@@ -27,6 +27,7 @@ namespace FedAndFound.Game.UI.Screens
 
             var logBox = UIFactory.ScrollList(layout, 140);
             foreach (var line in gm.BattleLog) UIFactory.Label(logBox, line, 15, TextAnchor.MiddleLeft, Theme.TextDim);
+            UIFactory.ScrollToBottom(logBox); // 방금 재생된 줄이 항상 보이게
 
             var allyRow = UIFactory.HGroup(layout, 8);
             UIFactory.FixedHeight(allyRow, 110);
@@ -38,6 +39,8 @@ namespace FedAndFound.Game.UI.Screens
                 UIFactory.Button(layout, "확인", gm.FinishBattleAndContinue, bg: Theme.Accent, fontSize: 24);
                 return;
             }
+
+            if (gm.Animating) { UIFactory.Label(layout, "…", 20, TextAnchor.MiddleCenter, Theme.TextDim); return; }
 
             var actor = battle.CurrentActor;
             if (actor.IsEnemy) { UIFactory.Label(layout, $"{actor} 행동 중…", 18, TextAnchor.MiddleCenter, Theme.TextDim); return; }
