@@ -71,6 +71,7 @@ static class Program
 
         SynergyTests();
         EnemySkillTests();
+        SimultaneousKoTest();
         EventTests();
     }
 
@@ -168,6 +169,17 @@ static class Program
         Check(r2.NodeOptions().Contains(NodeType.Event), "디버그: 이벤트 무제한이면 이벤트 노드가 다시 열림");
     }
 
+    /// <summary>회귀 테스트: 가시 세운 마지막 적을 쓰러뜨려도, 쓰러진 적은 반격하지 않는다(= 전원 기절 승리 없음).</summary>
+    static void SimultaneousKoTest()
+    {
+        var ally = Unit.CreateAlly(SpeciesDb.Get("gazelle")); ally.Hp = 1;
+        var hog = Unit.CreateEnemy(SpeciesDb.Get("hedgehog"), false, 1f); hog.Hp = 1;
+        var b = new Battle(new List<Unit> { ally }, new List<Unit> { hog }, Ctx());
+        hog.SustainOn = true;
+        b.Submit(new BattleAction(ActionType.Attack, hog));
+        Check(b.Outcome == BattleOutcome.Victory && !ally.Fainted, "쓰러진 가시 적은 반격 안 함 (전원 기절 승리 버그)");
+    }
+
     static void EnemySkillTests()
     {
         // 각 종이 적으로 나와도 예외 없이 100라운드 버티는지 + 스킬을 실제로 쓰는지
@@ -196,14 +208,28 @@ static class Program
 
     // ================= 자동 플레이 =================
 
+    sealed class Stats
+    {
+        public int Runs, Wins, Crashes, Purified, Defeated, Battles, Rounds;
+        public int[] ReachedStage = new int[RunState.FinalStage + 2];
+        public int[] DeathAtStage = new int[RunState.FinalStage + 1];
+        public int BossDeaths, MobDeaths;
+        public int[] BossFights = new int[RunState.FinalStage + 1], BossLosses = new int[RunState.FinalStage + 1];
+        public float BossHungerSum, BossHpSum; public int StarvingAtBoss;
+        public System.Collections.Generic.Dictionary<string, int> PickWins, PickCount;
+    }
+
     static void Simulate(int runs)
     {
+        var all = new[] { RunBot(new SmartBot(false), runs), RunBot(new SmartBot(true), runs), RunBot(new RandomBot(), runs) };
+        Check(all.All(x => x.Crashes == 0), $"자동 플레이 {runs}판×{all.Length} 예외 없음 (crash {all.Sum(x => x.Crashes)})");
+        foreach (var st in all) Report(st);
+    }
+
+    static Stats RunBot(IBot bot, int runs)
+    {
         var rosterIds = SpeciesDb.Roster.Select(s => s.Id).ToList();
-        int wins = 0, crashes = 0;
-        var reachedStage = new int[RunState.FinalStage + 2];
-        int purified = 0, defeated = 0;
-        var pickWins = rosterIds.ToDictionary(x => x, _ => 0);
-        var pickCount = rosterIds.ToDictionary(x => x, _ => 0);
+        var st = new Stats { Runs = runs, PickWins = rosterIds.ToDictionary(x => x, _ => 0), PickCount = rosterIds.ToDictionary(x => x, _ => 0) };
 
         for (int seed = 0; seed < runs; seed++)
         {
@@ -214,74 +240,72 @@ static class Program
                 var run = new RunState(ids, seed, skipTutorial: seed % 2 == 0);
                 int guard = 0;
                 while (run.Phase != RunPhase.Victory && run.Phase != RunPhase.GameOver && guard++ < 10000)
-                    Step(run, rng, ref purified, ref defeated);
+                    Step(bot, run, rng, st);
                 if (guard >= 10000) throw new Exception("무한 루프");
-                reachedStage[run.Stage]++;
-                foreach (var id in ids) pickCount[id]++;
-                if (run.Phase == RunPhase.Victory) { wins++; foreach (var id in ids) pickWins[id]++; }
+                st.ReachedStage[run.Stage]++;
+                foreach (var id in ids) st.PickCount[id]++;
+                if (run.Phase == RunPhase.Victory) { st.Wins++; foreach (var id in ids) st.PickWins[id]++; }
+                else st.DeathAtStage[run.Stage]++;
             }
             catch (Exception e)
             {
-                if (crashes++ < 3) Console.WriteLine($"CRASH seed={seed}: {e}");
+                if (st.Crashes++ < 3) Console.WriteLine($"CRASH [{bot.Name}] seed={seed}: {e}");
             }
         }
-
-        Check(crashes == 0, $"자동 플레이 {runs}판 예외 없음 (crash {crashes})");
-        Console.WriteLine($"\n승률 {100f * wins / runs:0.0}% | 도달 스테이지 분포 {string.Join(", ", reachedStage.Select((c, i) => $"{i}:{c}"))}");
-        Console.WriteLine($"처치 방식: 물리치기 {defeated} / 정화 {purified}");
-        Console.WriteLine("종별 승률(포함된 판 기준): " + string.Join(", ",
-            rosterIds.Select(id => $"{SpeciesDb.Get(id).Name} {100f * pickWins[id] / Math.Max(1, pickCount[id]):0}%")));
+        _names[st] = bot.Name;
+        return st;
     }
 
-    static void Step(RunState run, IRng rng, ref int purified, ref int defeated)
+    static readonly System.Collections.Generic.Dictionary<Stats, string> _names = new System.Collections.Generic.Dictionary<Stats, string>();
+
+    static void Report(Stats st)
+    {
+        int n = st.Runs;
+        Console.WriteLine($"\n[{_names[st]}] 승률 {100f * st.Wins / n:0.0}%");
+        Console.WriteLine($"  패배 스테이지: {string.Join(", ", st.DeathAtStage.Select((c, i) => $"{i}:{c}"))}  (보스전 패배 {st.BossDeaths} / 잡몹전 패배 {st.MobDeaths})");
+        Console.WriteLine($"  처치 방식: 물리치기 {st.Defeated} / 정화 {st.Purified} (정화 비율 {100f * st.Purified / Math.Max(1, st.Purified + st.Defeated):0}%)");
+        int bf = st.BossFights.Sum();
+        Console.WriteLine($"  보스 패배율(스테이지별): {string.Join(", ", st.BossFights.Select((c, i) => $"{i}:{100f * st.BossLosses[i] / Math.Max(1, c):0}%"))}" +
+            $"  | 보스 입장 시 평균 배고픔 {st.BossHungerSum / Math.Max(1, bf):0}, 평균 HP {100 * st.BossHpSum / Math.Max(1, bf):0}%, 굶주린 동물 있음 {100f * st.StarvingAtBoss / Math.Max(1, bf):0}%");
+        Console.WriteLine($"  전투당 평균 라운드 {(float)st.Rounds / Math.Max(1, st.Battles):0.0}, 판당 평균 전투 {(float)st.Battles / n:0.0}");
+        var ids = SpeciesDb.Roster.Select(s => s.Id);
+        Console.WriteLine("  종별 승률: " + string.Join(", ",
+            ids.Select(id => $"{SpeciesDb.Get(id).Name} {100f * st.PickWins[id] / Math.Max(1, st.PickCount[id]):0}%")));
+    }
+
+    static void Step(IBot bot, RunState run, IRng rng, Stats st)
     {
         switch (run.Phase)
         {
             case RunPhase.RelicEquip:
-                foreach (var r in run.OwnedRelics.Where(run.IsRelicEffective).ToList()) run.Equip(r);
+                bot.Equip(run);
                 run.ConfirmEquip(); break;
             case RunPhase.Map:
-                foreach (Diet d in new[] { Diet.Carnivore, Diet.Herbivore, Diet.Omnivore }) run.CraftGem(d);
-                var opts = run.NodeOptions();
-                run.EnterNode(rng.Pick(opts)); break;
+                bot.CraftGems(run);
+                run.EnterNode(bot.PickNode(run, rng)); break;
             case RunPhase.Event:
-                var ev = run.CurrentEvent;
-                var ok = Enumerable.Range(0, ev.Options.Count).Where(i => ev.Options[i].CanChoose(run)).ToList();
-                run.ChooseEventOption(rng.Pick(ok)); break;
+                run.ChooseEventOption(bot.PickEventOption(run, rng)); break;
             case RunPhase.Battle:
                 var b = run.CurrentBattle;
-                while (b.Outcome == BattleOutcome.Ongoing) b.Submit(BotAction(b, rng));
-                purified += b.Enemies.Count(e => e.Fate == EnemyFate.Purified);
-                defeated += b.Enemies.Count(e => e.Fate == EnemyFate.Defeated);
+                bool boss = b.Enemies.Any(e => e.IsBoss);
+                if (boss)
+                {
+                    st.BossFights[run.Stage]++;
+                    st.BossHungerSum += (float)b.Allies.Average(a => a.Hunger);
+                    st.BossHpSum += (float)b.Allies.Average(a => a.HpRatio);
+                    if (b.Allies.Any(a => a.Starving)) st.StarvingAtBoss++;
+                }
+                while (b.Outcome == BattleOutcome.Ongoing) b.Submit(bot.Act(b, rng));
+                st.Battles++; st.Rounds += b.Round;
+                st.Purified += b.Enemies.Count(e => e.Fate == EnemyFate.Purified);
+                st.Defeated += b.Enemies.Count(e => e.Fate == EnemyFate.Defeated);
+                if (b.Outcome == BattleOutcome.Defeat) { if (boss) { st.BossDeaths++; st.BossLosses[run.Stage]++; } else st.MobDeaths++; }
                 run.FinishBattle(); break;
             case RunPhase.PostBattle:
-                foreach (var a in run.Party)
-                    while (a.Hunger < 60 && (run.Feed(a, FoodType.Fruit) || run.Feed(a, FoodType.Meat))) { }
-                if (run.Party.Where(a => !a.Fainted).Average(a => a.HpRatio) < 0.6f) run.Rest();
+                bot.PostBattle(run);
                 run.Continue(); break;
             case RunPhase.Farewell:
-                run.Farewell(rng.Pick(run.Party), rng.Chance(0.5f)); break;
+                bot.Farewell(run, rng); break;
         }
-    }
-
-    static BattleAction BotAction(Battle b, IRng rng)
-    {
-        var u = b.CurrentActor;
-        foreach (var a in b.Allies.Where(x => x.Active && x.Species.Skill.Kind == SkillKind.Sustain))
-            b.SetSustain(a, a.Hunger > 40);
-        var foes = b.Enemies.Where(e => e.Active).ToList();
-        var weakest = foes.OrderBy(e => e.HpRatio).First();
-        var relic = b.CanUseRelic(RelicId.GuardShell) ? RelicId.GuardShell : (RelicId?)null;
-
-        if (rng.Chance(0.35f) && b.CanUseSkill(u, out _))
-        {
-            var s = b.EffectiveSkill(u);
-            Unit t = s.Target == SkillTarget.Enemy ? weakest
-                   : s.Target == SkillTarget.Ally ? b.Allies.Where(x => x.Active).OrderBy(x => x.HpRatio).First() : null;
-            return new BattleAction(ActionType.Skill, t, relic);
-        }
-        if (b.PurifyChance(u, weakest) > 35f && rng.Chance(0.6f))
-            return new BattleAction(ActionType.Purify, weakest, b.CanUseRelic(RelicId.PurifyIncense) ? RelicId.PurifyIncense : relic);
-        return new BattleAction(ActionType.Attack, weakest, b.CanUseRelic(RelicId.BeastClaw) ? RelicId.BeastClaw : relic);
     }
 }

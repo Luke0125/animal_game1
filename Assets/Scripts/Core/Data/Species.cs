@@ -60,14 +60,14 @@ namespace FedAndFound.Core
             Add("turtle", "거북", Diet.Herbivore, Size.Medium, 11, 120, 7, 16, 8, new SkillData(SkillId.Shell, "등딱지", SkillKind.Sustain, Balance.SustainCostPerTurn, SkillTarget.None));
             Add("gazelle", "가젤", Diet.Herbivore, Size.Medium, 1, 80, 11, 6, 10, new SkillData(SkillId.Swerve, "급선회", SkillKind.Active, 5, SkillTarget.None));
             Add("rhino", "코뿔소", Diet.Herbivore, Size.Large, 12, 140, 15, 14, 4, new SkillData(SkillId.Charge, "돌진", SkillKind.Active, 15, SkillTarget.Enemy));
-            Add("lion", "사자", Diet.Carnivore, Size.Large, 2, 110, 17, 8, 3, new SkillData(SkillId.Frenzy, "광폭", SkillKind.Passive, 0, SkillTarget.None));
+            Add("lion", "사자", Diet.Carnivore, Size.Large, 2, 110, 15, 8, 3, new SkillData(SkillId.Frenzy, "광폭", SkillKind.Passive, 0, SkillTarget.None));
             Add("leopard", "표범", Diet.Carnivore, Size.Medium, 4, 90, 15, 7, 5, new SkillData(SkillId.Ambush, "매복", SkillKind.Charge, 5, SkillTarget.None, 2));
             Add("snake", "뱀", Diet.Carnivore, Size.Small, 8, 70, 12, 6, 7, new SkillData(SkillId.VenomBite, "독 물기", SkillKind.Active, 10, SkillTarget.Enemy));
             Add("badger", "오소리", Diet.Carnivore, Size.Medium, 9, 115, 10, 13, 6, new SkillData(SkillId.Tenacity, "악바리", SkillKind.Sustain, Balance.SustainCostPerTurn, SkillTarget.None));
             Add("fox", "여우", Diet.Omnivore, Size.Small, 5, 75, 10, 7, 11, new SkillData(SkillId.Wits, "눈치", SkillKind.Active, 5, SkillTarget.Ally));
             Add("hedgehog", "고슴도치", Diet.Omnivore, Size.Small, 10, 85, 8, 14, 9, new SkillData(SkillId.Spines, "가시 세우기", SkillKind.Sustain, Balance.SustainCostPerTurn, SkillTarget.None));
             Add("monkey", "원숭이", Diet.Omnivore, Size.Small, 7, 80, 10, 8, 10, new SkillData(SkillId.Mimic, "모방", SkillKind.Active, 10, SkillTarget.None));
-            Add("boar", "멧돼지", Diet.Omnivore, Size.Medium, 6, 115, 14, 10, 5, new SkillData(SkillId.Rampage, "저돌", SkillKind.Active, 10, SkillTarget.Enemy));
+            Add("boar", "멧돼지", Diet.Omnivore, Size.Medium, 6, 115, 13, 10, 5, new SkillData(SkillId.Rampage, "저돌", SkillKind.Active, 10, SkillTarget.Enemy));
             Add(GuestId, "사슴", Diet.Herbivore, Size.Medium, 6, 90, 9, 8, 12, new SkillData(SkillId.Graze, "풀 뜯기", SkillKind.Active, 5, SkillTarget.Ally), roster: false);
         }
 

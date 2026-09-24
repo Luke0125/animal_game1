@@ -166,8 +166,9 @@ namespace FedAndFound.Core
                 // 0스테이지 보스는 잡몹 수준 난이도 (§12)
                 if (Stage == 0) scale = 1f / Balance.BossHpMult;
                 var bossUnit = Unit.CreateEnemy(Rng.Pick(SpeciesDb.Roster), true, scale);
-                // 파티가 줄어드는 구조(3→2→1)라 보스 HP를 파티 규모에 맞춘다
-                bossUnit.MaxHp = bossUnit.Hp = Math.Max(1, (int)(bossUnit.MaxHp * (0.2f + 0.27f * Party.Count)));
+                // 파티가 줄어드는 구조(3→2→1)라 보스 HP·ATK를 파티 규모에 맞춘다 (§12, §20-12)
+                bossUnit.MaxHp = bossUnit.Hp = Math.Max(1, (int)(bossUnit.MaxHp * (Balance.BossHpBase + Balance.BossHpPerAlly * Party.Count)));
+                bossUnit.BaseAtk *= Balance.BossAtkBase + Balance.BossAtkPerAlly * Party.Count;
                 enemies.Add(bossUnit);
             }
             else

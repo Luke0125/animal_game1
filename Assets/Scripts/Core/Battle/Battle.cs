@@ -458,7 +458,8 @@ namespace FedAndFound.Core
             Log(BattleEventType.Damage, src, dst, d, $"{src} → {dst} {d} 피해");
             ApplyDamage(dst, d);
 
-            if (dst.SustainOn && dst.Species.Skill.Id == SkillId.Spines && src != dst && src.Active)
+            // 쓰러진 고슴도치는 반격하지 않는다 (마지막 적과 마지막 아군이 동시에 쓰러지는 버그 방지)
+            if (dst.SustainOn && dst.Species.Skill.Id == SkillId.Spines && dst.Active && src != dst && src.Active)
             {
                 int r = Math.Max(1, (int)Math.Round(d * 0.3f));
                 Log(BattleEventType.Damage, dst, src, r, $"가시 반격 {r}");
@@ -510,8 +511,9 @@ namespace FedAndFound.Core
         void CheckOutcome()
         {
             if (Outcome != BattleOutcome.Ongoing) return;
-            if (Enemies.All(x => x.Removed)) Finish(BattleOutcome.Victory, "승리!");
-            else if (Allies.All(x => x.Fainted)) Finish(BattleOutcome.Defeat, "전멸… 게임 오버"); // §13
+            // 동시에 끝나면 전멸이 우선 (§13: 전원 기절 = 게임 오버)
+            if (Allies.All(x => x.Fainted)) Finish(BattleOutcome.Defeat, "전멸… 게임 오버"); // §13
+            else if (Enemies.All(x => x.Removed)) Finish(BattleOutcome.Victory, "승리!");
         }
 
         void Finish(BattleOutcome o, string text)

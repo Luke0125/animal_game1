@@ -17,7 +17,7 @@
   - `Field/*` 탑뷰 필드(4단계): `FieldView`(월드 Tilemap+파티 말, Map 단계에서만 표시, 걸어서 노드 진입), `FieldLayout`(칸 좌표·길·BFS), `TerrainTiles`(지형 4종 타일을 코드로 생성). 맵 화면 HUD는 가운데를 비워 필드가 보이게 한다.
 - `.claude/skills/` — Unity 공식 플러그인에서 이 프로젝트에 필요한 스킬 5개만 발췌(uGUI, unity-cli, 픽셀퍼펙트, 타일맵, TMP 한글폰트). 한글 폰트: `Assets/Resources/Fonts/NanumGothic.ttf`(런타임 Resources.Load용).
 - `docs/UI_REFERENCE.md` — 참고 화면 요약. `docs/REFERENCES.md` — 사용 에셋/AI 출처(추가 시 갱신 필수).
-- `Tests/CoreSim/` — Unity 없이 검증: `cd Tests/CoreSim && dotnet run -c Release` (규칙 테스트 + 봇 2000판 자동 플레이). Core 수정 후 반드시 실행.
+- `Tests/CoreSim/` — Unity 없이 검증: `cd Tests/CoreSim && dotnet run -c Release` (규칙 테스트 + 봇 3종 각 2000판 자동 플레이: 사냥/정화 성향·무작위, `Bots.cs`). Core 수정 후 반드시 실행. 밸런스 목표·현황은 ROADMAP 6단계.
 
 ## 규칙 요약 (GDD v0.7)
 - 파티 3마리(+0스테이지 손님 사슴). 스테이지 0→1→2→3, 클리어마다 1마리 포식(배고픔 회복)/집 보내기(유물 슬롯+1), 유물 2개 획득, 전원 HP 완전 회복·부활. 3스테이지 클리어 = 게임 클리어.
