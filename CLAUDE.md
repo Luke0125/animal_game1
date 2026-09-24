@@ -8,8 +8,13 @@
   - `Data/Species.cs` 12종+사슴 스탯/스킬, `Data/Relics.cs` 유물 18종 정의
   - `Battle/Battle.cs` 전투 엔진: `new Battle(allies, enemies, ctx)` → `CurrentActor`(아군) → `Submit(BattleAction)` → `DrainEvents()`로 연출 재생. 적 턴은 자동 진행. 유지형 스킬은 `SetSustain`(행동 소모 X)
   - `Run/RunState.cs` 런 상태머신: `Phase`(RelicEquip→Map→Battle→PostBattle/Event→…→Farewell→다음 스테이지) 보고 화면 전환
-- `Assets/Scripts/Game/` (예정) — MonoBehaviour/UI. Core를 **호출만** 하고 규칙을 다시 구현하지 않는다.
-- `.claude/skills/` — Unity 공식 플러그인에서 이 프로젝트에 필요한 스킬 5개만 발췌(uGUI, unity-cli, 픽셀퍼펙트, 타일맵, TMP 한글폰트). 한글 폰트: `Assets/Fonts/NanumGothic.ttf`.
+- `Assets/Scripts/Game/` — MonoBehaviour/UI (asmdef `FedAndFound.Game`, Core+UnityEngine.UI 참조). Core를 **호출만** 하고 규칙을 다시 구현하지 않는다.
+  - `Bootstrap.cs` 씬 로드 시 카메라·EventSystem·Canvas·GameManager를 코드로 생성(씬 파일은 완전히 비워둠)
+  - `GameManager.cs` RunState 보유 + 상태 변경 메서드(전부 끝에 `Refresh()` 호출) + `OnChanged` 이벤트
+  - `ScreenRouter.cs` `OnChanged`마다 화면 전체를 지우고 `Run.Phase`에 맞는 `UI/Screens/*` 화면을 다시 그림
+  - `UI/UIFactory.cs` 코드로 uGUI 조립(Panel/Label/Button/Bar/VGroup/HGroup/ScrollList). 새 화면도 이것만 쓴다.
+  - `UI/Screens/*` 화면 8개: 종 선택/유물 장착/맵/전투/전투 후/이벤트/작별/결과
+- `.claude/skills/` — Unity 공식 플러그인에서 이 프로젝트에 필요한 스킬 5개만 발췌(uGUI, unity-cli, 픽셀퍼펙트, 타일맵, TMP 한글폰트). 한글 폰트: `Assets/Resources/Fonts/NanumGothic.ttf`(런타임 Resources.Load용).
 - `docs/UI_REFERENCE.md` — 참고 화면 요약. `docs/REFERENCES.md` — 사용 에셋/AI 출처(추가 시 갱신 필수).
 - `Tests/CoreSim/` — Unity 없이 검증: `cd Tests/CoreSim && dotnet run -c Release` (규칙 테스트 + 봇 2000판 자동 플레이). Core 수정 후 반드시 실행.
 
