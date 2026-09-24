@@ -72,6 +72,7 @@ static class Program
         SynergyTests();
         EnemySkillTests();
         SimultaneousKoTest();
+        SoloTests();
         EventTests();
     }
 
@@ -180,6 +181,71 @@ static class Program
         Check(b.Outcome == BattleOutcome.Victory && !ally.Fainted, "쓰러진 가시 적은 반격 안 함 (전원 기절 승리 버그)");
     }
 
+    static Battle SoloBattle(string id, out Unit ally, out Unit foe, string foeId = "turtle", int seed = 1)
+    {
+        ally = Unit.CreateAlly(SpeciesDb.Get(id));
+        foe = Unit.CreateEnemy(SpeciesDb.Get(foeId), false, 1f); // 거북: 느려서 아군이 먼저 행동
+        foe.MaxHp = foe.Hp = 10000;
+        return new Battle(new List<Unit> { ally }, new List<Unit> { foe }, Ctx(seed));
+    }
+
+    static void SoloTests()
+    {
+        // 판정: 혼자일 때만 변형 스킬
+        var rabbit = Unit.CreateAlly(SpeciesDb.Get("rabbit")); var fox = Unit.CreateAlly(SpeciesDb.Get("fox"));
+        var slow = Unit.CreateEnemy(SpeciesDb.Get("turtle"), false, 1f);
+        var duo = new Battle(new List<Unit> { rabbit, fox }, new List<Unit> { slow }, Ctx());
+        Check(!duo.IsSolo(rabbit) && duo.CurrentSkill(rabbit).Id == SkillId.Soothe, "홀로서기: 동료가 있으면 원래 스킬");
+        fox.Hp = 0;
+        Check(duo.IsSolo(rabbit) && duo.CurrentSkill(rabbit).Id == SkillId.Burrow, "홀로서기: 동료가 기절하면 전투 중에도 변형 스킬");
+
+        // 궁지 본능: 작을수록 큰 보너스
+        var b = SoloBattle("rabbit", out var r, out _);
+        var b2 = new Battle(new List<Unit> { r, Unit.CreateAlly(SpeciesDb.Get("lion")) }, new List<Unit> { Unit.CreateEnemy(SpeciesDb.Get("turtle"), false, 1f) }, Ctx());
+        Check(Math.Abs(b.Atk(r) / b2.Atk(r) - (1 + Balance.SoloDesperationBySize[0])) < 0.001f, "궁지 본능: 혼자 남은 소형 ATK +50%");
+
+        // 토끼굴: 회복 + 방어 + 다음 공격 강화
+        b = SoloBattle("rabbit", out r, out var foe); r.Hp = 30;
+        b.Submit(new BattleAction(ActionType.Skill));
+        Check(r.Hp > 30 && r.ChargeMult == 2.0f && (r.ChargedReady || foe.Hp < foe.MaxHp), "토끼굴: 회복 + 뒷발차기 준비");
+
+        // 여우 꾀: 순이득 +1 행동, 라운드당 1회
+        b = SoloBattle("fox", out var f, out _);
+        b.Submit(new BattleAction(ActionType.Skill));
+        Check(b.CurrentActor == f && !b.CanUseSkill(f, out _), "꾀: 곧바로 다시 여우 차례 + 같은 라운드 재사용 불가");
+        b.Submit(new BattleAction(ActionType.Defend));
+        Check(b.CurrentActor == f, "꾀: 두 번 더 행동");
+
+        // 가젤 프롱킹: 적 공격 감소
+        b = SoloBattle("gazelle", out var g, out foe);
+        float before = b.Atk(foe);
+        b.Submit(new BattleAction(ActionType.Skill));
+        Check(foe.AtkDownTurns > 0 && b.Atk(foe) < before, "프롱킹: 적 공격 -30%");
+
+        // 벌꿀오소리: 혼자면 독 면역
+        bool immune = true;
+        for (int seed = 1; seed < 20; seed++)
+        {
+            var badger = Unit.CreateAlly(SpeciesDb.Get("badger")); badger.MaxHp = badger.Hp = 10000;
+            var snake = Unit.CreateEnemy(SpeciesDb.Get("snake"), false, 1f); snake.MaxHp = snake.Hp = 10000;
+            var bb = new Battle(new List<Unit> { badger }, new List<Unit> { snake }, Ctx(seed));
+            for (int i = 0; i < 30 && bb.Outcome == BattleOutcome.Ongoing; i++) { bb.Submit(new BattleAction(ActionType.Defend)); if (badger.PoisonTurns > 0) immune = false; }
+        }
+        Check(immune, "벌꿀오소리: 혼자면 뱀독 면역");
+
+        // 사자: 무리를 잃으면 광폭 보너스 절반
+        var lion = Unit.CreateAlly(SpeciesDb.Get("lion")); lion.Hunger = 0;
+        var lb = new Battle(new List<Unit> { lion }, new List<Unit> { Unit.CreateEnemy(SpeciesDb.Get("turtle"), false, 1f) }, Ctx());
+        float soloAtk = lb.Atk(lion) / lb.SoloDesperation(lion);
+        float expected = lion.BaseAtk * Balance.StarvingStatMult * (1 + 0.4f);
+        Check(Math.Abs(soloAtk - expected) < 0.01f, "무리 잃은 사자: 광폭 최대 +40%");
+
+        // 뱀 허물 벗기: 독 해제 + 회복
+        b = SoloBattle("snake", out var sn, out _); sn.Hp = 20; sn.PoisonTurns = 3; sn.PoisonDmg = 1;
+        b.Submit(new BattleAction(ActionType.Skill));
+        Check(sn.Hp > 20 && sn.PoisonTurns == 0, "허물 벗기: 회복 + 독 해제");
+    }
+
     static void EnemySkillTests()
     {
         // 각 종이 적으로 나와도 예외 없이 100라운드 버티는지 + 스킬을 실제로 쓰는지
@@ -216,14 +282,43 @@ static class Program
         public int BossDeaths, MobDeaths;
         public int[] BossFights = new int[RunState.FinalStage + 1], BossLosses = new int[RunState.FinalStage + 1];
         public float BossHungerSum, BossHpSum; public int StarvingAtBoss;
+        public System.Collections.Generic.Dictionary<string, int> SoloFights = new System.Collections.Generic.Dictionary<string, int>(),
+            SoloWins = new System.Collections.Generic.Dictionary<string, int>();
         public System.Collections.Generic.Dictionary<string, int> PickWins, PickCount;
     }
 
     static void Simulate(int runs)
     {
+        SoloBenchmark();
         var all = new[] { RunBot(new SmartBot(false), runs), RunBot(new SmartBot(true), runs), RunBot(new RandomBot(), runs) };
         Check(all.All(x => x.Crashes == 0), $"자동 플레이 {runs}판×{all.Length} 예외 없음 (crash {all.Sum(x => x.Crashes)})");
         foreach (var st in all) Report(st);
+    }
+
+    /// <summary>홀로서기 벤치마크: 각 종이 3스테이지 보스와 1:1 (RunState.StartBattle과 같은 보스 공식, 3스테이지까지의 평균적인 성장 가정).
+    /// 종 선택이 "딜러를 남기는 게 정답"이 되지 않도록 종별 승률을 비교한다.</summary>
+    static void SoloBenchmark()
+    {
+        var bot = new SmartBot(false);
+        var parts = new System.Collections.Generic.List<string>();
+        foreach (var sp in SpeciesDb.Roster)
+        {
+            int wins = 0, n = 400;
+            for (int i = 0; i < n; i++)
+            {
+                var rng = new SystemRng(i * 7919 + 13);
+                var ally = Unit.CreateAlly(sp); ally.Hunger = 70; ally.PermanentBonus = 0.2f; // 잡몹 10마리 처치 상당
+                float scale = (1f + Balance.EnemyScalePerStage * 3) * (1f + Balance.BossGrowthPerStage * 2);
+                var boss = Unit.CreateEnemy(rng.Pick(SpeciesDb.Roster), true, scale);
+                boss.MaxHp = boss.Hp = Math.Max(1, (int)(boss.MaxHp * (Balance.BossHpBase + Balance.BossHpPerAlly * 1)));
+                boss.BaseAtk *= Balance.BossAtkBase + Balance.BossAtkPerAlly * 1;
+                var b = new Battle(new List<Unit> { ally }, new List<Unit> { boss }, new BattleContext { Rng = rng });
+                for (int guard = 0; guard < 500 && b.Outcome == BattleOutcome.Ongoing; guard++) b.Submit(bot.Act(b, rng));
+                if (b.Outcome == BattleOutcome.Victory) wins++;
+            }
+            parts.Add($"{sp.Name} {100f * wins / n:0}%");
+        }
+        Console.WriteLine("\n[홀로서기 벤치마크] 3스테이지 보스 1:1 승률(사냥 봇 조작): " + string.Join(", ", parts));
     }
 
     static Stats RunBot(IBot bot, int runs)
@@ -271,6 +366,8 @@ static class Program
         var ids = SpeciesDb.Roster.Select(s => s.Id);
         Console.WriteLine("  종별 승률: " + string.Join(", ",
             ids.Select(id => $"{SpeciesDb.Get(id).Name} {100f * st.PickWins[id] / Math.Max(1, st.PickCount[id]):0}%")));
+        Console.WriteLine("  3스테이지 1:1 보스 승률(홀로 남은 종, 표본 수): " + string.Join(", ",
+            ids.Select(id => $"{SpeciesDb.Get(id).Name} {100f * st.SoloWins.GetValueOrDefault(id) / Math.Max(1, st.SoloFights.GetValueOrDefault(id)):0}%({st.SoloFights.GetValueOrDefault(id)})")));
     }
 
     static void Step(IBot bot, RunState run, IRng rng, Stats st)
@@ -299,6 +396,12 @@ static class Program
                 st.Battles++; st.Rounds += b.Round;
                 st.Purified += b.Enemies.Count(e => e.Fate == EnemyFate.Purified);
                 st.Defeated += b.Enemies.Count(e => e.Fate == EnemyFate.Defeated);
+                if (boss && run.Stage == RunState.FinalStage && b.Allies.Count == 1)
+                {
+                    var id = b.Allies[0].Species.Id;
+                    st.SoloFights[id] = st.SoloFights.GetValueOrDefault(id) + 1;
+                    if (b.Outcome == BattleOutcome.Victory) st.SoloWins[id] = st.SoloWins.GetValueOrDefault(id) + 1;
+                }
                 if (b.Outcome == BattleOutcome.Defeat) { if (boss) { st.BossDeaths++; st.BossLosses[run.Stage]++; } else st.MobDeaths++; }
                 run.FinishBattle(); break;
             case RunPhase.PostBattle:

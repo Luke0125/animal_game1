@@ -22,6 +22,8 @@ namespace FedAndFound.Core
         public EnemyFate Fate;
         public float Evade;
         public int PoisonTurns, PoisonDmg, DefDownTurns, SkillUses, NextRoundBoost;
+        public int AtkDownTurns, DefUpTurns, RageStacks, ExtraTurnRound; // 홀로서기 스킬용 (프롱킹·진흙 목욕·벌꿀오소리·꾀)
+        public float ChargeMult = 2.6f;                                   // 매복 배율 (고독한 사냥꾼은 3.0)
         internal bool SustainPaidThisRound;
         public bool Removed => Fate != EnemyFate.None;
         public bool Active => !Fainted && !Removed;
@@ -45,6 +47,7 @@ namespace FedAndFound.Core
             Defending = SustainOn = ChargedReady = GuardShellArmed = SustainPaidThisRound = false;
             Fate = EnemyFate.None; Evade = 0;
             PoisonTurns = PoisonDmg = DefDownTurns = SkillUses = NextRoundBoost = 0;
+            AtkDownTurns = DefUpTurns = RageStacks = ExtraTurnRound = 0; ChargeMult = 2.6f;
         }
 
         public void Heal(int amount) { if (!Fainted) Hp = System.Math.Min(MaxHp, Hp + amount); }

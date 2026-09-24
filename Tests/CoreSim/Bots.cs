@@ -140,6 +140,24 @@ sealed class SmartBot : IBot
                 case SkillId.Swerve:
                     if (u.HpRatio < 0.5f) return new BattleAction(ActionType.Skill, null, guard);
                     break;
+                // ----- 홀로서기 -----
+                case SkillId.HideCharge: case SkillId.StoneThrow:
+                    if (!killable) return new BattleAction(ActionType.Skill, foes.OrderByDescending(e => e.Hp).First(), guard);
+                    break;
+                case SkillId.LoneHunt:
+                    if (foes.Sum(e => e.Hp) > expDmg * 2) return new BattleAction(ActionType.Skill, null, guard);
+                    break;
+                case SkillId.Burrow: case SkillId.MudBath:
+                    if (u.HpRatio < 0.6f) return new BattleAction(ActionType.Skill, null, guard);
+                    break;
+                case SkillId.Shedding:
+                    if (u.HpRatio < 0.5f || u.PoisonTurns > 0) return new BattleAction(ActionType.Skill, null, guard);
+                    break;
+                case SkillId.Pronk:
+                    if (foes.All(e => e.AtkDownTurns == 0)) return new BattleAction(ActionType.Skill, null, guard);
+                    break;
+                case SkillId.Trick:
+                    return new BattleAction(ActionType.Skill, null, guard);
             }
         }
 

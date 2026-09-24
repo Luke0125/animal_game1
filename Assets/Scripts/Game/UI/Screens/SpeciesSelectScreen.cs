@@ -26,7 +26,8 @@ namespace FedAndFound.Game.UI.Screens
                 bool picked = _selected.Contains(s.Id);
                 var row = UIFactory.HGroup(list, 10);
                 UIFactory.FixedHeight(row, 46);
-                var info = $"{s.Name}  [{DietName(s.Diet)}]  HP{s.Hp} ATK{s.Atk} DEF{s.Def} PUR{s.Purify}  스킬:{s.Skill.Name}";
+                var info = $"{s.Name}  [{DietName(s.Diet)}]  HP{s.Hp} ATK{s.Atk} DEF{s.Def} PUR{s.Purify}  스킬:{s.Skill.Name}"
+                    + (s.SoloSkill != null ? $"  / 홀로:{s.SoloSkill.Name}" : "");
                 UIFactory.Button(row, (picked ? "✔ " : "") + info, () => Toggle(s.Id),
                     bg: picked ? Theme.Selected : Theme.PanelLight, fontSize: 18);
             }

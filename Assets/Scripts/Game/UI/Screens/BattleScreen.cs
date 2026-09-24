@@ -95,6 +95,7 @@ namespace FedAndFound.Game.UI.Screens
             if (e.Evade > 0) tags.Add("회피");
             if (e.PoisonTurns > 0) tags.Add($"독 {e.PoisonTurns}");
             if (e.DefDownTurns > 0) tags.Add("방어↓");
+            if (e.AtkDownTurns > 0) tags.Add("공격↓");
             return tags.Count == 0 ? "" : "  [" + string.Join(", ", tags) + "]";
         }
 
@@ -110,6 +111,8 @@ namespace FedAndFound.Game.UI.Screens
             UIFactory.Stretch(v);
             string tag = a.Fainted ? "(기절)" : a.Defending ? "(방어)" : a.SustainOn ? "(유지)" : "";
             if (!a.Fainted && a.PoisonTurns > 0) tag += $"(독 {a.PoisonTurns})"; // 적 뱀 독 물기(5단계)
+            if (battle.IsSolo(a)) tag += "(홀로)";
+            if (a.ChargedReady) tag += "(노리는 중)";
             UIFactory.Label(v, $"{a.Name} {tag}", 15, TextAnchor.MiddleCenter);
             UIFactory.Bar(v, a.HpRatio, a.HpRatio > 0.3f ? Theme.HpBar : Theme.HpBarLow, $"{a.Hp}/{a.MaxHp}", 11);
             UIFactory.Bar(v, (float)a.Hunger / Balance.MaxHunger, Theme.HungerBar, $"배고픔 {a.Hunger}", 11);
@@ -131,7 +134,14 @@ namespace FedAndFound.Game.UI.Screens
                 UIFactory.Button(relics, RelicDb.Get(r).Name, () => gm.ToggleRelic(r),
                     bg: gm.PendingRelic == r ? Theme.Selected : Theme.PanelLight, fontSize: 15);
 
-            var skill = actor.Species.Skill;
+            var skill = battle.CurrentSkill(actor); // 혼자 남으면 홀로서기 스킬로 바뀐다
+            if (battle.IsSolo(actor) && actor.Species.SoloSkill != null)
+            {
+                float bonus = (battle.SoloDesperation(actor) - 1f) * 100f;
+                string desperation = bonus > 0 ? $"  궁지 본능: ATK·DEF +{bonus:0}%" : "";
+                UIFactory.Label(parent, $"홀로서기! {actor.Species.SoloTrait}{desperation}", 15, TextAnchor.MiddleCenter, Theme.Selected);
+                UIFactory.Label(parent, $"{skill.Name}: {skill.Desc}", 14, TextAnchor.MiddleCenter, Theme.TextDim);
+            }
             var row = UIFactory.HGroup(parent, 10);
             UIFactory.FixedHeight(row, 54);
             UIFactory.Button(row, "기본 공격", () => gm.SetPendingAction(ActionType.Attack), fontSize: 20);

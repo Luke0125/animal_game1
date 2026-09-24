@@ -26,7 +26,7 @@ namespace FedAndFound.Core
         // 보스 규모 보정: 배율 = Base + PerAlly × 파티 수 (파티 3→2→1로 줄어드는 구조 대응)
         public const float BossHpBase = 0.2f, BossHpPerAlly = 0.25f;
         public const float BossAtkBase = 1f, BossAtkPerAlly = 0f;
-        public const float BossGrowthPerStage = 0f;    // 보스 추가 성장: 1스테이지 +0, 2스테이지 +N, 3스테이지 +2N (HP·ATK 모두)
+        public const float BossGrowthPerStage = 0.03f;    // 보스 추가 성장: 1스테이지 +0, 2스테이지 +N, 3스테이지 +2N (HP·ATK 모두)
         public const float EnemyScalePerStage = 0.1f;
         public const float MobKillPermanentBonus = 0.02f; // 잡몹 물리치기 1마리당 영구 +2%
         public const int MinMobsPerNode = 1, MaxMobsPerNode = 3; // 3노드 × 3 = 최대 9 (§12/§20-13)
@@ -71,6 +71,9 @@ namespace FedAndFound.Core
         public const float AdaptAtk = 0.12f;                 // 적응 육식+잡식
         public const float AdaptAllAtk = 0.06f, AdaptAllPurify = 5f; // 적응 셋 다
         public const float AdaptSoloAtk = 0.12f, AdaptSoloPurify = 8f; // 적응 잡식뿐: 적 HP 50% 기준
+
+        // 홀로서기 (6단계): 전투에서 혼자 남은 동물의 "궁지 본능" ATK·DEF 보너스 — 소/중/대
+        public static readonly float[] SoloDesperationBySize = { 0.5f, 0.25f, 0f };
 
         // 적 스킬 AI (5단계) — 적은 배고픔이 없으므로 확률로 스킬을 쓴다
         public const float EnemySkillChance = 0.3f, BossSkillChance = 0.45f;

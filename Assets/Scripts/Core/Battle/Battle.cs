@@ -92,25 +92,36 @@ namespace FedAndFound.Core
             return Math.Max(0, Math.Min(Balance.PurifyChanceCap, c));
         }
 
+        /// <summary>홀로서기: 전투에서 살아 있는 아군이 자기뿐인가 (6단계).</summary>
+        public bool IsSolo(Unit u) => !u.IsEnemy && u.Active && Allies.Count(x => x.Active) == 1;
+
+        /// <summary>지금 이 동물의 스킬(홀로서기면 변형 스킬). UI 표시와 규칙 판정 모두 이걸 쓴다.</summary>
+        public SkillData CurrentSkill(Unit u) => IsSolo(u) && u.Species.SoloSkill != null ? u.Species.SoloSkill : u.Species.Skill;
+
         public int SkillCost(Unit u)
         {
-            int c = u.Species.Skill.Cost;
+            int c = CurrentSkill(u).Cost;
             return Ctx.Has(RelicId.ThriftCharm) ? (int)Math.Ceiling(c * Balance.ThriftMult) : c;
         }
 
         /// <summary>원숭이는 직전 아군 액티브 스킬로 대체된다.</summary>
-        public SkillData EffectiveSkill(Unit u) => u.Species.Skill.Id == SkillId.Mimic ? _lastAllyActive : u.Species.Skill;
+        public SkillData EffectiveSkill(Unit u)
+        {
+            var s = CurrentSkill(u);
+            return s.Id == SkillId.Mimic ? _lastAllyActive : s;
+        }
 
         public bool CanUseSkill(Unit u, out string reason)
         {
-            var s = u.Species.Skill; reason = null;
+            var s = CurrentSkill(u); reason = null;
             if (Ctx.Has(RelicId.SealedClaw)) reason = "봉인된 발톱: 스킬 사용 불가";
             else if (s.Kind == SkillKind.Passive) reason = "패시브 스킬";
             else if (s.Kind == SkillKind.Sustain) reason = "유지형은 SetSustain으로 켜고 끈다";
             else if (u.Hunger < SkillCost(u)) reason = "배고픔 부족";
             else if (s.MaxUsesPerBattle > 0 && u.SkillUses >= s.MaxUsesPerBattle) reason = "이번 전투 사용 횟수 소진";
             else if (s.Id == SkillId.Mimic && _lastAllyActive == null) reason = "복사할 스킬이 없음";
-            else if (s.Id == SkillId.Ambush && u.ChargedReady) reason = "이미 매복 중";
+            else if ((s.Id == SkillId.Ambush || s.Id == SkillId.LoneHunt) && u.ChargedReady) reason = "이미 매복 중";
+            else if (s.Id == SkillId.Trick && u.ExtraTurnRound == Round) reason = "이번 라운드에 이미 사용";
             return reason == null;
         }
 
@@ -220,13 +231,13 @@ namespace FedAndFound.Core
 
         void DoSkill(Unit u, Unit target)
         {
-            var own = u.Species.Skill;
+            var own = CurrentSkill(u);
             var s = EffectiveSkill(u);
             u.AddHunger(-SkillCost(u));
             u.SkillUses++;
             Log(BattleEventType.Skill, u, target, 0, own.Id == SkillId.Mimic ? $"{u} 모방 → {s.Name}" : $"{u} {s.Name}");
             ExecuteSkill(u, s.Id, target);
-            if (own.Kind == SkillKind.Active && own.Id != SkillId.Mimic) _lastAllyActive = own;
+            if (own.Kind == SkillKind.Active && own.Id != SkillId.Mimic && own == u.Species.Skill) _lastAllyActive = own; // 홀로서기 스킬은 모방 대상 아님
         }
 
         void ExecuteSkill(Unit u, SkillId id, Unit target)
@@ -236,15 +247,68 @@ namespace FedAndFound.Core
                 case SkillId.Soothe: _roundPurifyBonus += 8; break;
                 case SkillId.Swerve: u.Evade = 0.4f; break;
                 case SkillId.Charge: DealDamage(u, target, 2.2f, true); break;
-                case SkillId.Ambush: u.ChargedReady = true; break; // 이번 턴은 쉼, 다음 첫 공격 ×2.6
+                case SkillId.Ambush: u.ChargedReady = true; u.ChargeMult = 2.6f; break; // 이번 턴은 쉼, 다음 첫 공격 ×2.6
                 case SkillId.VenomBite:
                     DealDamage(u, target, 1.0f, false);
-                    if (target.Active) { target.PoisonTurns = 3; target.PoisonDmg = Math.Max(1, (int)Math.Round(Atk(u) * 0.25f)); }
+                    TryPoison(u, target);
+                    break;
+
+                // ----- 홀로서기 -----
+                case SkillId.Burrow:
+                    // 굴에 숨었다가 튀어나오며 뒷발차기
+                    u.Defending = true; u.Evade = 0.4f; HealPct(u, u, 0.15f);
+                    u.ChargedReady = true; u.ChargeMult = 2.0f;
+                    break;
+                case SkillId.Pronk:
+                    foreach (var e in Enemies.Where(x => x.Active)) e.AtkDownTurns = 3;
+                    u.Evade = 0.6f;
+                    u.ChargedReady = true; u.ChargeMult = 1.8f; // 착지하며 뒷발로 걷어차기
+                    Log(BattleEventType.Status, u, null, 0, "적들이 쫓기를 망설인다 (적 공격 -30%, 3회)");
+                    break;
+                case SkillId.HideCharge: DealDamage(u, target, 1.6f, true); u.DefUpTurns = 1; break;
+                case SkillId.LoneHunt: u.ChargedReady = true; u.ChargeMult = 3.0f; break;
+                case SkillId.Shedding:
+                    // 새 비늘로 몸을 바꾸고, 다음 독 물기/공격을 노린다
+                    HealPct(u, u, 0.3f);
+                    u.PoisonTurns = 0; u.DefDownTurns = 0; u.AtkDownTurns = 0;
+                    u.ChargedReady = true; u.ChargeMult = 1.8f;
+                    break;
+                case SkillId.Trick:
+                    // 이 스킬에 쓴 차례까지 돌려받아야 의미가 있으므로 2번 더 움직인다 (순이득 +1 행동)
+                    u.ExtraTurnRound = Round;
+                    _queue.Insert(_turn + 1, u); _queue.Insert(_turn + 1, u);
+                    Log(BattleEventType.Status, u, null, 0, $"{u}이(가) 재빠르게 두 번 더 움직인다!");
+                    break;
+                case SkillId.StoneThrow:
+                    DealDamage(u, target, 1.8f, false);
+                    if (target.Active) target.DefDownTurns = Math.Max(target.DefDownTurns, 3);
+                    break;
+                case SkillId.MudBath:
+                    HealPct(u, u, 0.15f); u.DefUpTurns = 2; u.DefDownTurns = 0;
                     break;
                 case SkillId.Wits: MoveUp(target, 2); break;
                 case SkillId.Rampage: DealDamage(u, target, 1.8f, false); u.DefDownTurns = 1; break;
                 case SkillId.Graze: target.Heal((int)Math.Round(target.MaxHp * 0.2f)); Log(BattleEventType.Heal, u, target, 0, $"{target} 회복"); break;
             }
+        }
+
+        void HealPct(Unit src, Unit dst, float pct)
+        {
+            int amt = Math.Max(1, (int)Math.Round(dst.MaxHp * pct));
+            dst.Heal(amt);
+            Log(BattleEventType.Heal, src, dst, amt, $"{dst} HP {amt} 회복");
+        }
+
+        /// <summary>독 물기 공통. 혼자 남은 벌꿀오소리는 뱀독에 면역.</summary>
+        void TryPoison(Unit src, Unit target)
+        {
+            if (!target.Active) return;
+            if (IsSolo(target) && target.Species.Skill.Id == SkillId.Tenacity)
+            {
+                Log(BattleEventType.Status, src, target, 0, $"{target}에게는 독이 통하지 않는다!");
+                return;
+            }
+            target.PoisonTurns = 3; target.PoisonDmg = Math.Max(1, (int)Math.Round(Atk(src) * 0.25f));
         }
 
         /// <summary>여우 눈치: 이번 라운드에 아직 행동 전이면 즉시 2칸 앞당기고, 이미 행동했으면 다음 라운드에 적용.</summary>
@@ -300,6 +364,8 @@ namespace FedAndFound.Core
         {
             u.Defending = false; u.Evade = 0;
             if (u.DefDownTurns > 0) u.DefDownTurns--;
+            if (u.DefUpTurns > 0) u.DefUpTurns--;
+            if (u.SustainOn && u.Species.Skill.Id == SkillId.Shell && IsSolo(u)) HealPct(u, u, 0.03f); // 깊이 웅크리기
             if (!u.IsEnemy && u.SustainOn && !u.SustainPaidThisRound)
             {
                 // FR-2: 배고픔 부족 시 자동 해제
@@ -314,7 +380,12 @@ namespace FedAndFound.Core
             }
         }
 
-        void EndTurn() { _turn++; CheckOutcome(); }
+        void EndTurn()
+        {
+            // 공격↓(프롱킹)은 "그 유닛이 행동한 횟수"로 센다
+            if (_turn < _queue.Count && _queue[_turn].AtkDownTurns > 0) _queue[_turn].AtkDownTurns--;
+            _turn++; CheckOutcome();
+        }
 
         void EndRound()
         {
@@ -385,7 +456,7 @@ namespace FedAndFound.Core
                 }
                 case SkillId.Ambush:
                     if (e.SkillUses >= e.Species.Skill.MaxUsesPerBattle) return false;
-                    e.SkillUses++; e.ChargedReady = true;
+                    e.SkillUses++; e.ChargedReady = true; e.ChargeMult = 2.6f;
                     Log(BattleEventType.Skill, e, null, 0, $"{e}이(가) 몸을 낮추고 노린다… (다음 공격 ×2.6, 방어 추천)");
                     return true;
                 case SkillId.VenomBite:
@@ -394,7 +465,7 @@ namespace FedAndFound.Core
                     if (t.PoisonTurns > 0) return false;
                     Log(BattleEventType.Skill, e, t, 0, $"{e} 독 물기!");
                     DealDamage(e, t, 1.0f, false);
-                    if (t.Active) { t.PoisonTurns = 3; t.PoisonDmg = Math.Max(1, (int)Math.Round(Atk(e) * 0.25f)); }
+                    TryPoison(e, t);
                     return true;
                 }
                 case SkillId.Wits:
@@ -446,22 +517,25 @@ namespace FedAndFound.Core
             // 적응(잡식뿐): 적 HP 50% 이상이면 공격 보너스
             if (!src.IsEnemy && dst.IsEnemy && dst.HpRatio >= 0.5f && CurrentAdapt() == Synergies.AdaptMode.OmniOnly)
                 atk *= 1 + Balance.AdaptSoloAtk;
-            if (src.ChargedReady) { atk *= 2.6f; src.ChargedReady = false; }
+            if (src.ChargedReady) { atk *= src.ChargeMult; src.ChargedReady = false; }
             float def = ignoreDef ? 0 : Def(dst);
             float dmg = atk * Balance.DefenseK / (Balance.DefenseK + def);
             dmg *= 1f + (Rng.Value() * 2f - 1f) * Balance.DamageVariance;
             if (dst.Defending) dmg *= Balance.DefendDamageMult;
-            if (dst.SustainOn && dst.Species.Skill.Id == SkillId.Shell) dmg *= 0.68f;
-            if (dst.SustainOn && dst.Species.Skill.Id == SkillId.Tenacity) dmg *= 0.85f;
+            bool solo = IsSolo(dst);
+            if (dst.SustainOn && dst.Species.Skill.Id == SkillId.Shell) dmg *= solo ? 0.5f : 0.68f;
+            if (dst.SustainOn && dst.Species.Skill.Id == SkillId.Tenacity) dmg *= solo ? 0.75f : 0.85f;
+            if (dst.SustainOn && dst.Species.Skill.Id == SkillId.Spines && solo) dmg *= 0.8f;
             if (dst.GuardShellArmed && src.IsEnemy) { dmg *= Balance.GuardShellMult; dst.GuardShellArmed = false; }
             int d = Math.Max(1, (int)Math.Round(dmg));
             Log(BattleEventType.Damage, src, dst, d, $"{src} → {dst} {d} 피해");
             ApplyDamage(dst, d);
+            if (solo && dst.Active && dst.SustainOn && dst.Species.Skill.Id == SkillId.Tenacity && dst.RageStacks < 6) dst.RageStacks++; // 벌꿀오소리의 배짱
 
             // 쓰러진 고슴도치는 반격하지 않는다 (마지막 적과 마지막 아군이 동시에 쓰러지는 버그 방지)
             if (dst.SustainOn && dst.Species.Skill.Id == SkillId.Spines && dst.Active && src != dst && src.Active)
             {
-                int r = Math.Max(1, (int)Math.Round(d * 0.3f));
+                int r = Math.Max(1, (int)Math.Round(d * (solo ? 0.5f : 0.3f)));
                 Log(BattleEventType.Damage, dst, src, r, $"가시 반격 {r}");
                 ApplyDamage(src, r);
             }
@@ -529,10 +603,13 @@ namespace FedAndFound.Core
         public float Atk(Unit u)
         {
             float v = u.BaseAtk * (1 + u.PermanentBonus) * StarveMult(u);
+            if (u.AtkDownTurns > 0) v *= 0.7f; // 가젤 프롱킹
+            v *= SoloDesperation(u);
             if (u.IsEnemy)
                 return u.Species.Skill.Id == SkillId.Frenzy && u.HpRatio < Balance.EnemyFrenzyHpThreshold ? v * Balance.EnemyFrenzyAtkMult : v;
             float bonus = Ctx.StageBuffs.Atk + SynergyAtk();
-            if (u.Species.Skill.Id == SkillId.Frenzy) bonus += 0.8f * HungerDeficit(u);
+            if (u.Species.Skill.Id == SkillId.Frenzy) bonus += (IsSolo(u) ? 0.4f : 0.8f) * HungerDeficit(u); // 무리 잃은 사자는 절반
+            bonus += 0.05f * u.RageStacks;
             if (Ctx.Has(RelicId.HeatedFang)) bonus += Math.Min(Balance.FangAtkCap, Balance.FangAtkPerRound * (Round - 1));
             if (Ctx.Has(RelicId.SealedClaw)) bonus += Balance.SealedClawAtk;
             return v * (1 + bonus);
@@ -542,6 +619,8 @@ namespace FedAndFound.Core
         {
             float v = u.BaseDef * (1 + u.PermanentBonus) * StarveMult(u);
             if (u.DefDownTurns > 0) v *= 0.8f;
+            if (u.DefUpTurns > 0) v *= 1.3f; // 멧돼지 진흙 목욕
+            v *= SoloDesperation(u);
             if (!u.IsEnemy && Ctx.Has(RelicId.YetiFur)) v *= Balance.YetiDefMult;
             return v;
         }
@@ -553,6 +632,9 @@ namespace FedAndFound.Core
             if (Ctx.Has(RelicId.SealedClaw)) v += Balance.SealedClawPurify;
             return v;
         }
+
+        /// <summary>홀로서기 "궁지 본능": 혼자 남으면 몸집이 작을수록 필사적으로 싸운다(ATK·DEF 배율).</summary>
+        public float SoloDesperation(Unit u) => IsSolo(u) ? 1f + Balance.SoloDesperationBySize[(int)u.Species.Size] : 1f;
 
         /// <summary>무리사냥 + 적응(대상 무관한 부분)의 공격 보너스 합.</summary>
         float SynergyAtk()
