@@ -1,0 +1,24 @@
+# Unity
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+*.csproj
+!Tests/**/*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.booproj
+*.unityproj
+.vs/
+.idea/
+.vscode/
+crashlytics-buildsettings.properties
+# dotnet 검증 프로젝트
+Tests/**/bin/
+Tests/**/obj/
