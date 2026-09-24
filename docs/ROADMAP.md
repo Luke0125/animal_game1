@@ -30,9 +30,6 @@
   - 0스테이지: 파티 3+사슴이 약한 보스 1마리와 바로 싸움(노드 없음)
   - 보스 HP는 남은 파티 수에 비례해 줄어듦(3→2→1마리 구조 대응)
 
-## Unity 프로젝트 준비 (사람이 할 일, 2단계 전에 1회)
-1. Unity Hub → **Unity 6 LTS**, 템플릿 **Universal 2D**로 아무 폴더에 새 프로젝트 생성
-2. 생성된 `Packages/`, `ProjectSettings/` 폴더를 이 저장소 루트에 복사 (`Assets/`는 저장소 것을 유지)
-3. Unity Hub → Add → 이 저장소 폴더 열기 → Console에 에러 없으면 OK
-4. 한글 폰트: Noto Sans KR TTF를 `Assets/Fonts/`에 넣기 (TextMeshPro 한글 표시용)
-5. 커밋·푸시 (`.gitignore`가 Library 등은 제외함)
+## Unity 프로젝트 준비 (완료)
+- `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt`, 한글 폰트 `Assets/Fonts/NanumGothic*.ttf`는 저장소에 포함됨. Unity가 처음 열 때 나머지 ProjectSettings와 `.meta` 파일을 생성한다 → 생성된 파일은 커밋할 것.
+- 렌더 파이프라인: 기본(Built-in) 2D. URP 불필요. TMP 폰트 에셋은 2단계에서 코드로 런타임 생성(`TMP_FontAsset.CreateFontAsset`).
