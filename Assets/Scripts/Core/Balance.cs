@@ -25,7 +25,8 @@ namespace FedAndFound.Core
         public const float BossHpMult = 2.2f, BossAtkMult = 1.1f;
         // 보스 규모 보정: 배율 = Base + PerAlly × 파티 수 (파티 3→2→1로 줄어드는 구조 대응)
         public const float BossHpBase = 0.2f, BossHpPerAlly = 0.25f;
-        public const float BossAtkBase = 0.55f, BossAtkPerAlly = 0.15f;
+        public const float BossAtkBase = 1f, BossAtkPerAlly = 0f;
+        public const float BossGrowthPerStage = 0f;    // 보스 추가 성장: 1스테이지 +0, 2스테이지 +N, 3스테이지 +2N (HP·ATK 모두)
         public const float EnemyScalePerStage = 0.1f;
         public const float MobKillPermanentBonus = 0.02f; // 잡몹 물리치기 1마리당 영구 +2%
         public const int MinMobsPerNode = 1, MaxMobsPerNode = 3; // 3노드 × 3 = 최대 9 (§12/§20-13)

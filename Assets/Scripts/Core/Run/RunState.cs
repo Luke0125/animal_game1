@@ -165,6 +165,8 @@ namespace FedAndFound.Core
             {
                 // 0스테이지 보스는 잡몹 수준 난이도 (§12)
                 if (Stage == 0) scale = 1f / Balance.BossHpMult;
+                // 동물은 처치 보너스·유물·시너지로 성장하므로 보스는 스테이지마다 잡몹보다 더 가파르게 강해진다
+                else scale *= 1f + Balance.BossGrowthPerStage * (Stage - 1);
                 var bossUnit = Unit.CreateEnemy(Rng.Pick(SpeciesDb.Roster), true, scale);
                 // 파티가 줄어드는 구조(3→2→1)라 보스 HP·ATK를 파티 규모에 맞춘다 (§12, §20-12)
                 bossUnit.MaxHp = bossUnit.Hp = Math.Max(1, (int)(bossUnit.MaxHp * (Balance.BossHpBase + Balance.BossHpPerAlly * Party.Count)));
