@@ -44,6 +44,9 @@ namespace FedAndFound.Game
             var gm = gmGo.AddComponent<GameManager>();
             gmGo.AddComponent<ScreenRouter>().Init(gm, (RectTransform)screenRoot.transform);
 
+            // 탑뷰 필드(4단계): 월드 공간이라 Canvas(Overlay) 아래에 그려지고, 맵 HUD의 빈 가운데로 보인다
+            Field.FieldView.Create(gm);
+
             // ScreenRoot보다 나중에 만들어야 화면 갱신으로 지워지는 UI 위에 플래시가 겹쳐 보인다.
             UI.EventFeedOverlay.Create(canvasGo.transform, gm);
         }
