@@ -73,7 +73,7 @@ namespace FedAndFound.Core
         {
             Stage = stage; NodesMoved = 0; EventUsed = false;
             StageBuffs = new StageBuffs();
-            Terrain = (Terrain)Rng.Range(0, 4);
+            Terrain = Balance.StageTerrains[stage]; // 참고 맵 이미지처럼 스테이지마다 고정 지형 (§11)
             Phase = RunPhase.RelicEquip;
             Log.Add($"== {stage}스테이지 ({TerrainName(Terrain)}) ==");
         }

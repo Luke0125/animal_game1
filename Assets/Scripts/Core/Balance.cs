@@ -3,6 +3,9 @@ namespace FedAndFound.Core
     /// <summary>모든 제안 수치를 한 곳에 모은다. 플레이테스트 후 여기만 고치면 된다. (GDD §20 미정 사항 대부분)</summary>
     public static class Balance
     {
+        // 스테이지별 지형 (0→3). 무작위로 바꾸려면 RunState.BeginStage 수정
+        public static readonly Terrain[] StageTerrains = { Terrain.Plains, Terrain.Swamp, Terrain.SnowMountain, Terrain.Desert };
+
         // 배고픔 (§9)
         public const int MaxHunger = 100;
         public const int HungerPerNode = 8;
