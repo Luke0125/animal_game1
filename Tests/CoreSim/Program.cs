@@ -310,6 +310,7 @@ static class Program
         public int[] ReachedStage = new int[RunState.FinalStage + 2];
         public int[] DeathAtStage = new int[RunState.FinalStage + 1];
         public int BossDeaths, MobDeaths;
+        public readonly HashSet<string> Achieved = new HashSet<string>();
         public int[] BossFights = new int[RunState.FinalStage + 1], BossLosses = new int[RunState.FinalStage + 1];
         public float BossHungerSum, BossHpSum; public int StarvingAtBoss;
         public System.Collections.Generic.Dictionary<string, int> SoloFights = new System.Collections.Generic.Dictionary<string, int>(),
@@ -322,6 +323,9 @@ static class Program
         SoloBenchmark();
         var all = new[] { RunBot(new SmartBot(false), runs), RunBot(new SmartBot(true), runs), RunBot(new RandomBot(), runs) };
         Check(all.All(x => x.Crashes == 0), $"자동 플레이 {runs}판×{all.Length} 예외 없음 (crash {all.Sum(x => x.Crashes)})");
+        var seen = new HashSet<string>(all.SelectMany(x => x.Achieved));
+        var never = Achievements.All.Where(a => !seen.Contains(a.Id)).Select(a => a.Name).ToList();
+        Check(never.Count == 0, $"업적 {Achievements.All.Count}종 모두 달성 가능 (봇 플레이 중 한 번 이상){(never.Count > 0 ? " — 못 한 것: " + string.Join(", ", never) : "")}");
         foreach (var st in all) Report(st);
     }
 
@@ -367,6 +371,7 @@ static class Program
                 while (run.Phase != RunPhase.Victory && run.Phase != RunPhase.GameOver && guard++ < 10000)
                     Step(bot, run, rng, st);
                 if (guard >= 10000) throw new Exception("무한 루프");
+                foreach (var id in Achievements.Satisfied(run)) st.Achieved.Add(id);
                 st.ReachedStage[run.Stage]++;
                 foreach (var id in ids) st.PickCount[id]++;
                 if (run.Phase == RunPhase.Victory) { st.Wins++; foreach (var id in ids) st.PickWins[id]++; }

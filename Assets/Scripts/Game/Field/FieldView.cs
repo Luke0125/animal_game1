@@ -335,7 +335,7 @@ namespace FedAndFound.Game.Field
                 m.Ring.transform.localScale = Vector3.one * baseScale * (open ? pulse : 1f);
             }
 
-            if (Walking) return;
+            if (Walking || UI.PauseMenu.IsOpen) return; // ESC 메뉴가 열려 있으면 이동 입력 무시
 
             var dir = ReadDirection();
             if (dir != Vector2Int.zero)

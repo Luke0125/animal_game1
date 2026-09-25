@@ -26,7 +26,7 @@ namespace FedAndFound.Core
                 Options =
                 {
                     new Option { Text = "열매 2개를 준다", CanChoose = r => r.Fruit >= 2,
-                        Apply = r => { r.Fruit -= 2; r.UniversalFragments++; return "고마워하는 눈빛… 반짝이는 만능 조각을 남기고 떠났다."; } },
+                        Apply = r => { r.Fruit -= 2; r.UniversalFragments++; r.Stats.Tags.Add("event:gave_fruit"); return "고마워하는 눈빛… 반짝이는 만능 조각을 남기고 떠났다."; } },
                     new Option { Text = "지나간다", Apply = r => "못 본 척 지나쳤다." },
                 },
             },
@@ -37,6 +37,7 @@ namespace FedAndFound.Core
                 {
                     new Option { Text = "뒤져본다", Apply = r =>
                     {
+                        r.Stats.Tags.Add("event:crate");
                         if (r.Rng.Chance(0.6f)) { r.Meat += 2; r.Fruit += 2; return "고기 2, 열매 2를 얻었다!"; }
                         foreach (var a in r.Party.Where(p => !p.Fainted)) a.Hp = Math.Max(1, a.Hp - a.MaxHp / 10);
                         return "오염된 음식이었다… 모두 HP가 줄었다.";
@@ -68,13 +69,13 @@ namespace FedAndFound.Core
                 Options =
                 {
                     new Option { Text = "고기 2 → 열매 3", CanChoose = r => r.Meat >= 2,
-                        Apply = r => { r.Meat -= 2; r.Fruit += 3; return "열매 3개를 받았다."; } },
+                        Apply = r => { r.Meat -= 2; r.Fruit += 3; r.Stats.Tags.Add("event:crow_trade"); return "열매 3개를 받았다."; } },
                     new Option { Text = "열매 2 → 고기 3", CanChoose = r => r.Fruit >= 2,
-                        Apply = r => { r.Fruit -= 2; r.Meat += 3; return "고기 3개를 받았다."; } },
+                        Apply = r => { r.Fruit -= 2; r.Meat += 3; r.Stats.Tags.Add("event:crow_trade"); return "고기 3개를 받았다."; } },
                     new Option { Text = "고기 1 + 열매 1 → 무작위 조각 1", CanChoose = r => r.Meat >= 1 && r.Fruit >= 1,
                         Apply = r =>
                         {
-                            r.Meat--; r.Fruit--;
+                            r.Meat--; r.Fruit--; r.Stats.Tags.Add("event:crow_trade");
                             var d = (Diet)r.Rng.Range(0, 3);
                             r.Fragments[d]++;
                             return $"{DietName(d)} 조각 1개를 받았다.";
@@ -89,7 +90,7 @@ namespace FedAndFound.Core
                 {
                     new Option { Text = "정화를 시도한다 (성공 50%)", Apply = r =>
                     {
-                        if (r.Rng.Chance(0.5f)) { r.UniversalFragments++; return "샘이 맑아졌다! 바닥에서 만능 조각을 찾았다."; }
+                        if (r.Rng.Chance(0.5f)) { r.UniversalFragments++; r.Stats.Tags.Add("event:spring_ok"); return "샘이 맑아졌다! 바닥에서 만능 조각을 찾았다."; }
                         foreach (var a in r.Party) a.AddHunger(-12);
                         return "저주에 기운을 빼앗겼다… 전원 배고픔 -12.";
                     } },
@@ -103,7 +104,7 @@ namespace FedAndFound.Core
                 {
                     new Option { Text = "고기 2개를 나눠 준다 (이번 스테이지 정화 +5%p)", CanChoose = r => r.Meat >= 2, Apply = r =>
                     {
-                        r.Meat -= 2; r.StageBuffs.Purify += 5f;
+                        r.Meat -= 2; r.StageBuffs.Purify += 5f; r.Stats.Tags.Add("event:fed_fox");
                         return "새끼 여우가 꼬리를 흔든다. 마음이 맑아진다. (이번 스테이지 정화 +5%p)";
                     } },
                     new Option { Text = "쫓아낸다", Apply = r => "새끼 여우는 덤불 속으로 사라졌다." },

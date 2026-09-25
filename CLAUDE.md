@@ -17,6 +17,8 @@
   - 데모 모드(7단계): 타이틀 토글 또는 에디터/개발 빌드 → 맵·전투에 치트 패널. 치트는 Core `Debug*` 메서드만 호출. 시연 순서 `docs/DEMO_SCRIPT.md`
   - `Battle/BackdropView`+`Scenery`: 맵·전투 외 화면 뒤의 지형 풍경 + 걸어가는 동물들.
   - `Battle/*` 사이드뷰 전투 무대(그래픽 1차): `BattleStageView`(월드 공간, Battle 단계에서만, `OnBattleEvent`로 돌진·피격·데미지 숫자·정화·기절 연출), `UnitView`(동물 1마리), `AnimalArt`(13종 픽셀 스프라이트를 코드로 생성). 전투 UI(`BattleScreen`)는 틀만 그리고 가운데를 비운다.
+  - `Meta/*` 영구 저장(PlayerPrefs): `Settings`(음량·전투 속도·전체화면), `AchievementStore`(업적·장착 칭호). 업적 판정은 Core `Run/Achievements.cs`(`RunState.Stats` 기록 기반).
+  - `UI/PauseMenu`(ESC: 일시정지·업적·설정·게임 방법·타이틀로) · `UI/AchievementToast`(달성 알림) — 둘 다 화면과 별개인 전역 오버레이.
   - `Audio/SoundManager` 코드로 합성한 효과음·배경음(전투 이벤트·버튼·발걸음에 연결, M 키 음소거).
   - `Field/*` 탑뷰 필드(4단계, 맵 아트: 떠 있는 섬·절벽·구름·돌 발판 노드·동물 말): `FieldView`(월드 Tilemap+파티 말, Map 단계에서만 표시, 걸어서 노드 진입), `FieldLayout`(칸 좌표·길·BFS), `TerrainTiles`(지형 4종 타일을 코드로 생성). 맵 화면 HUD는 가운데를 비워 필드가 보이게 한다.
 - `.claude/skills/` — Unity 공식 플러그인에서 이 프로젝트에 필요한 스킬 5개만 발췌(uGUI, unity-cli, 픽셀퍼펙트, 타일맵, TMP 한글폰트). 한글 폰트: `Assets/Resources/Fonts/NanumGothic.ttf`(런타임 Resources.Load용).

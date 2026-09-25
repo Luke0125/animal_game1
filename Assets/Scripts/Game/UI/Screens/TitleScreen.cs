@@ -15,11 +15,21 @@ namespace FedAndFound.Game.UI.Screens
             UIFactory.Stretch(logo.rectTransform, new Vector2(0, 0.74f), new Vector2(1, 0.92f));
             var sub = UIFactory.Label(root, "지켜서 데려갈 것인가, 먹고 살아남을 것인가", 26, TextAnchor.MiddleCenter, Color.white, stretch: false);
             UIFactory.Stretch(sub.rectTransform, new Vector2(0, 0.68f), new Vector2(1, 0.74f));
+            string title = Meta.AchievementStore.EquippedTitle;
+            if (title != null)
+            {
+                var tl = UIFactory.Label(root, $"칭호 「{title}」", 20, TextAnchor.MiddleCenter, Theme.Gold, stretch: false);
+                UIFactory.Stretch(tl.rectTransform, new Vector2(0, 0.655f), new Vector2(1, 0.69f));
+            }
 
-            var v = UIFactory.Window(root, new Vector2(0.36f, 0.22f), new Vector2(0.64f, 0.66f));
+            var v = UIFactory.Window(root, new Vector2(0.36f, 0.14f), new Vector2(0.64f, 0.645f));
             UIFactory.Button(v, "새 게임", () => gm.ShowFront(FrontScreen.Intro), bg: new Color(0.55f, 0.43f, 0.2f), fontSize: 26);
             UIFactory.Button(v, "인트로 건너뛰고 시작", () => gm.ShowFront(FrontScreen.SpeciesSelect), fontSize: 21);
             UIFactory.Button(v, "게임 방법", () => gm.ShowFront(FrontScreen.HowTo), fontSize: 21);
+            var row = UIFactory.HGroup(v, 8);
+            UIFactory.FixedHeight(row, 44);
+            UIFactory.Button(row, $"업적·칭호 ({Meta.AchievementStore.Unlocked.Count}/{Core.Achievements.All.Count})", () => PauseMenu.Open("achievements"), fontSize: 18);
+            UIFactory.Button(row, "환경설정", () => PauseMenu.Open("settings"), fontSize: 18);
             var demo = UIFactory.Button(v, $"데모 모드: {(gm.DemoMode ? "ON" : "OFF")}", gm.ToggleDemoMode,
                 bg: gm.DemoMode ? new Color(0.45f, 0.2f, 0.45f) : Theme.PanelLight, fontSize: 19);
             UIFactory.Tooltip(demo, "발표 5분 시연용: 맵·전투 화면에 빠른 진행 버튼(보라색)이 나온다.\n순서는 docs/DEMO_SCRIPT.md");

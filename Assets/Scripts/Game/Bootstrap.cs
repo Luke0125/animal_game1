@@ -53,8 +53,10 @@ namespace FedAndFound.Game
 
             // ScreenRoot보다 나중에 만들어야 화면 갱신으로 지워지는 UI 위에 플래시가 겹쳐 보인다.
             UI.EventFeedOverlay.Create(canvasGo.transform, gm);
-            UI.Tooltip.Create(canvasGo.transform); // 맨 위: 마우스 올리면 설명
-            Audio.SoundManager.Create(gm);          // 코드로 합성한 효과음·배경음 (M 키로 끄기)
+            Audio.SoundManager.Create(gm);                    // 코드로 합성한 효과음·배경음 (M 키로 끄기)
+            UI.AchievementToast.Create(canvasGo.transform, gm); // 업적 달성 알림
+            UI.PauseMenu.Create(canvasGo.transform, gm);        // ESC: 일시정지·업적·환경설정 (설정도 여기서 불러옴)
+            UI.Tooltip.Create(canvasGo.transform);             // 맨 위: 마우스 올리면 설명
         }
     }
 }

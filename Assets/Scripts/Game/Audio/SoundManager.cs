@@ -45,6 +45,14 @@ namespace FedAndFound.Game.Audio
             Instance._sfx.PlayOneShot(Instance.Clip(s), volume);
         }
 
+        /// <summary>환경설정 음량 (0~1). 기본값 음악 0.5 / 효과음 0.7.</summary>
+        public static void SetVolumes(float music, float sfx)
+        {
+            if (Instance == null) return;
+            Instance._bgm.volume = 0.32f * music;
+            Instance._sfx.volume = 0.8f * sfx;
+        }
+
         public static void ToggleMute()
         {
             Muted = !Muted;

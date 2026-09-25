@@ -50,6 +50,7 @@ namespace FedAndFound.Core
         public RandomEvent CurrentEvent { get; private set; }
         public BattleRewards LastRewards { get; private set; }
         public readonly List<string> Log = new List<string>();
+        public readonly RunStats Stats = new RunStats(); // 업적 판정용 기록 (§15)
 
         public RunState(IList<string> speciesIds, int seed, bool skipTutorial = false)
         {
@@ -198,6 +199,10 @@ namespace FedAndFound.Core
             if (b.Outcome == BattleOutcome.Defeat) { Phase = RunPhase.GameOver; Log.Add("게임 오버"); return; }
 
             var rw = LastRewards = b.Rewards;
+            Stats.Purified += b.Enemies.Count(e => e.Fate == EnemyFate.Purified);
+            Stats.Defeated += b.Enemies.Count(e => e.Fate == EnemyFate.Defeated);
+            if (rw.BossPurified) Stats.BossPurified++;
+            if (b.Allies.Count > 1 && b.Allies.Count(a => !a.Fainted) == 1) Stats.SoloWins++; // 동료가 다 쓰러진 뒤 혼자 이김
             Meat += rw.Meat; Fruit += rw.Fruit;
             foreach (var f in rw.Fragments) { if (f is Diet d) Fragments[d]++; else UniversalFragments++; }
             if (rw.MobsDefeated > 0)
@@ -260,6 +265,7 @@ namespace FedAndFound.Core
         void ClearStage()
         {
             foreach (var a in Party) { a.Hp = a.MaxHp; a.ResetBattleState(); } // 전체 회복 + 기절 부활
+            if (Stage == 0) Stats.TutorialCleared = true; else Stats.StagesCleared++;
 
             if (Stage == 0)
             {
@@ -286,8 +292,9 @@ namespace FedAndFound.Core
                 int gain = Balance.DevourRestoreBySize[(int)u.Species.Size];
                 foreach (var a in Party) a.AddHunger(gain);
                 Log.Add($"{u.Name}을(를) 포식했다 (배고픔 +{gain})");
+                Stats.Devoured++;
             }
-            else { RelicSlots++; Log.Add($"{u.Name}을(를) 집으로 보냈다 (유물 슬롯 +1)"); }
+            else { Stats.SentHome++; RelicSlots++; Log.Add($"{u.Name}을(를) 집으로 보냈다 (유물 슬롯 +1)"); }
             GrantRelics(2);
             BeginStage(Stage + 1);
         }

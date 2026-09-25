@@ -14,6 +14,12 @@ namespace FedAndFound.Game.UI.Screens
             var log = UIFactory.ScrollList(layout, 300);
             foreach (var line in gm.Run.Log) UIFactory.Label(log, line, 16, TextAnchor.MiddleLeft, Theme.TextDim);
 
+            if (gm.NewAchievements.Count > 0)
+            {
+                UIFactory.Label(layout, "이번 판에 달성한 업적", 20, TextAnchor.MiddleCenter, Theme.Gold, bold: true);
+                foreach (var a in gm.NewAchievements)
+                    UIFactory.Label(layout, $"{a.Name} — 칭호 「{a.Title}」", 17, TextAnchor.MiddleCenter);
+            }
             UIFactory.Button(layout, "새 게임", gm.ResetToSpeciesSelect, bg: Theme.Accent, fontSize: 24);
             UIFactory.Button(layout, "타이틀로", gm.ResetToTitle, fontSize: 20);
         }

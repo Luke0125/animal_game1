@@ -140,7 +140,7 @@ namespace FedAndFound.Game.BattleView
 
         void Update()
         {
-            if (!Active || !Input.GetMouseButtonDown(0)) return;
+            if (!Active || !Input.GetMouseButtonDown(0) || UI.PauseMenu.IsOpen) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
             var cam = Camera.main;
             if (cam == null) return;

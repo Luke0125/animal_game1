@@ -30,12 +30,16 @@ namespace FedAndFound.Game
         public string LastEventResult { get; private set; }
         /// <summary>전투 이벤트를 한 줄씩 재생하는 동안 true. 이 동안은 화면에서 행동 입력을 잠근다(§3단계 연출).</summary>
         public bool Animating { get; private set; }
-        const float EventDelay = 0.32f; // 전투 무대 연출(돌진·피격·숫자)이 보일 만큼
+        float EventDelay => Meta.Settings.FastBattle ? 0.16f : 0.32f; // 전투 무대 연출(돌진·피격·숫자)이 보일 만큼, 설정에서 2배속
 
         Battle _lastBattleSeen;
         public event Action OnChanged;
         /// <summary>전투 이벤트가 한 줄씩 재생될 때마다 발생. 화면 전체를 다시 그리지 않는 연출(화면 플래시 등)이 구독한다.</summary>
         public event Action<BattleEvent> OnBattleEvent;
+        /// <summary>업적을 처음 달성했을 때 (알림 토스트가 구독).</summary>
+        public event Action<AchievementData> OnAchievement;
+        /// <summary>이번 판에 새로 달성한 업적 (결과 화면에 표시).</summary>
+        public readonly List<AchievementData> NewAchievements = new List<AchievementData>();
 
         void Awake()
         {
@@ -51,7 +55,20 @@ namespace FedAndFound.Game
                 BattleLog.Clear();
                 PendingAction = null; PendingRelic = null;
             }
+            CheckAchievements();
             OnChanged?.Invoke();
+        }
+
+        void CheckAchievements()
+        {
+            if (Run == null) return;
+            foreach (var id in Achievements.Satisfied(Run))
+                if (Meta.AchievementStore.Unlock(id))
+                {
+                    var a = Achievements.Get(id);
+                    NewAchievements.Add(a);
+                    OnAchievement?.Invoke(a);
+                }
         }
 
         // ================= 타이틀 / 인트로 (7단계) =================
@@ -76,6 +93,7 @@ namespace FedAndFound.Game
         public void StartRun(IList<string> speciesIds, bool skipTutorial)
         {
             LastError = null;
+            NewAchievements.Clear();
             try { Run = new RunState(speciesIds, Environment.TickCount, skipTutorial); }
             catch (Exception e) { LastError = e.Message; }
             Refresh();
