@@ -7,4 +7,5 @@
 | Unity Agent Plugin 0.1.6-beta (스킬 일부: `.claude/skills/`) | Claude용 Unity 작업 가이드 | Unity Technologies, Unity Companion License (`.claude/skills/UNITY_PLUGIN_LICENSE.md`) |
 | 나눔고딕 (NAVER) | 한글 UI 폰트 | SIL OFL 1.1 (`Assets/Fonts/NANUM_FONT_LICENSE.txt`) |
 | 게임 디자인 레퍼런스 | 전투 구조 | Slay the Spire 2, Darkest Dungeon (GDD §1) |
+| 동물 스프라이트 13종 · 전투 배경 | 사이드뷰 전투 화면 | 외부 에셋 없음 — `AnimalArt.cs`/`BattleStageView.cs`가 코드로 픽셀을 직접 그림(Claude Code 작성). 화면 배치는 팀이 준 참고 이미지(`docs/UI_REFERENCE.md`)를 따름 |
 | 필드 타일·장식 그래픽 | 탑뷰 맵 지형 4종 | 외부 에셋 없음 — `TerrainTiles.cs`가 코드로 픽셀을 직접 그림(Claude Code 작성) |

@@ -30,7 +30,7 @@ namespace FedAndFound.Game
         public string LastEventResult { get; private set; }
         /// <summary>전투 이벤트를 한 줄씩 재생하는 동안 true. 이 동안은 화면에서 행동 입력을 잠근다(§3단계 연출).</summary>
         public bool Animating { get; private set; }
-        const float EventDelay = 0.22f;
+        const float EventDelay = 0.32f; // 전투 무대 연출(돌진·피격·숫자)이 보일 만큼
 
         Battle _lastBattleSeen;
         public event Action OnChanged;

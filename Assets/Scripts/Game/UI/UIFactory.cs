@@ -141,6 +141,20 @@ namespace FedAndFound.Game.UI
             sr.verticalNormalizedPosition = 0f;
         }
 
+        /// <summary>스프라이트 아이콘(초상화 등). 레이아웃 그룹 안에서는 size×size로 고정된다.</summary>
+        public static Image Icon(Transform parent, Sprite sprite, float size, bool flipX = false)
+        {
+            var rt = NewRect(parent, "Icon");
+            rt.sizeDelta = new Vector2(size, size);
+            if (flipX) rt.localScale = new Vector3(-1, 1, 1);
+            var img = rt.gameObject.AddComponent<Image>();
+            img.sprite = sprite; img.preserveAspect = true; img.raycastTarget = false;
+            var le = rt.gameObject.AddComponent<LayoutElement>();
+            le.minWidth = le.preferredWidth = size; le.minHeight = le.preferredHeight = size;
+            le.flexibleWidth = 0;
+            return img;
+        }
+
         public static void FixedHeight(RectTransform rt, float h)
         {
             var le = rt.gameObject.GetComponent<LayoutElement>() ?? rt.gameObject.AddComponent<LayoutElement>();

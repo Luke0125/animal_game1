@@ -46,6 +46,8 @@ namespace FedAndFound.Game
 
             // 탑뷰 필드(4단계): 월드 공간이라 Canvas(Overlay) 아래에 그려지고, 맵 HUD의 빈 가운데로 보인다
             Field.FieldView.Create(gm);
+            // 사이드뷰 전투 무대(동물 스프라이트·연출): 전투 UI의 빈 가운데로 보인다
+            BattleView.BattleStageView.Create(gm);
 
             // ScreenRoot보다 나중에 만들어야 화면 갱신으로 지워지는 UI 위에 플래시가 겹쳐 보인다.
             UI.EventFeedOverlay.Create(canvasGo.transform, gm);
