@@ -26,6 +26,7 @@ namespace FedAndFound.Game.UI
             _gm = gm;
             var rt = UIFactory.Panel(transform, "Flash", new Color(0, 0, 0, 0));
             _flash = rt.GetComponent<Image>();
+            _flash.sprite = null; // 화면 전체 번쩍임은 둥근 모서리 없이
             _flash.raycastTarget = false; // 클릭을 막지 않는다
             gm.OnBattleEvent += HandleEvent;
         }

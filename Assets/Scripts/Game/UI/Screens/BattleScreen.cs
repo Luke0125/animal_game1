@@ -127,7 +127,8 @@ namespace FedAndFound.Game.UI.Screens
             var actor = battle.CurrentActor;
             foreach (var e in battle.Enemies.Where(x => x.Active))
             {
-                UIFactory.Label(v, $"{(e.IsBoss ? "[보스] " : "")}타락한 {e.Name}{EnemyTags(e)}", 17, TextAnchor.MiddleLeft, bold: true);
+                var name = UIFactory.Label(v, $"{(e.IsBoss ? "[보스] " : "")}타락한 {e.Name}{EnemyTags(e)}", 17, TextAnchor.MiddleLeft, bold: true);
+                UIFactory.Tooltip(name, InfoText.EnemySkill(e));
                 UIFactory.Bar(v, e.HpRatio, Theme.HpBarLow, $"{e.Hp} / {e.MaxHp}", 13);
                 if (actor != null && !actor.IsEnemy)
                 {
@@ -183,6 +184,7 @@ namespace FedAndFound.Game.UI.Screens
             bool cur = a == battle.CurrentActor;
             bool pick = domain == SkillTarget.Ally && a.Active;
             var card = UIFactory.Panel(parent, "Ally", pick ? new Color(0.45f, 0.38f, 0.15f, 0.95f) : cur ? new Color(0.22f, 0.19f, 0.13f, 0.95f) : PanelBg, stretch: false);
+            UIFactory.Tooltip(card, InfoText.Species(a.Species) + (battle.IsSolo(a) ? "\n\n지금 혼자 남아 홀로서기 중!" : ""));
             if (pick)
             {
                 var btn = card.gameObject.AddComponent<UnityEngine.UI.Button>();
@@ -216,10 +218,10 @@ namespace FedAndFound.Game.UI.Screens
             foreach (var r in equipped)
             {
                 if (ActiveRelics.Contains(r) && battle.CanUseRelic(r) && battle.Outcome == BattleOutcome.Ongoing && !gm.Animating)
-                    UIFactory.Button(v, RelicDb.Get(r).Name + (gm.PendingRelic == r ? " (사용)" : ""), () => gm.ToggleRelic(r),
-                        bg: gm.PendingRelic == r ? Theme.Selected : Theme.PanelLight, fontSize: 14);
+                    UIFactory.Tooltip(UIFactory.Button(v, RelicDb.Get(r).Name + (gm.PendingRelic == r ? " (사용)" : ""), () => gm.ToggleRelic(r),
+                        bg: gm.PendingRelic == r ? Theme.Selected : Theme.PanelLight, fontSize: 14), InfoText.Relic(r) + "\n누르면 이번 행동에 함께 사용");
                 else
-                    UIFactory.Label(v, RelicDb.Get(r).Name, 14, TextAnchor.MiddleCenter);
+                    UIFactory.Tooltip(UIFactory.Label(v, RelicDb.Get(r).Name, 14, TextAnchor.MiddleCenter), InfoText.Relic(r));
             }
         }
 
@@ -262,25 +264,33 @@ namespace FedAndFound.Game.UI.Screens
                 UIFactory.Label(v, $"홀로서기! {(bonus > 0 ? $"궁지 본능 +{bonus:0}%" : "")}", 15, TextAnchor.MiddleCenter, Theme.Selected, bold: true);
                 UIFactory.Label(v, $"{skill.Name}: {skill.Desc}", 13, TextAnchor.MiddleCenter, Theme.TextDim);
             }
-            Command(v, "▶  기본 공격", () => gm.SetPendingAction(ActionType.Attack), true, highlight: true);
-            Command(v, "◎  정화", () => gm.SetPendingAction(ActionType.Purify), true);
+            Command(v, "▶  기본 공격", () => gm.SetPendingAction(ActionType.Attack), true, highlight: true,
+                tip: $"적 1마리를 공격 (지금 공격력 {battle.Atk(actor):0}).\n물리치면 고기 + 무작위 조각, 잡몹이면 영구 능력치 조금 상승.");
+            Command(v, "◎  정화", () => gm.SetPendingAction(ActionType.Purify), true,
+                tip: $"적의 저주를 풀어 전투에서 빼낸다.\n확률 = 저주 게이지(적 HP를 깎을수록 ↑) + {actor.Name}의 정화 효율.\n성공하면 열매 + 조각 (보스는 만능 조각).");
             if (skill.Kind == SkillKind.Sustain)
-                Command(v, $"◆  {skill.Name} {(actor.SustainOn ? "끄기" : "켜기")}", () => gm.ToggleSustain(actor), true, selected: actor.SustainOn);
+                Command(v, $"◆  {skill.Name} {(actor.SustainOn ? "끄기" : "켜기")}", () => gm.ToggleSustain(actor), true, selected: actor.SustainOn,
+                    tip: InfoText.Skill(skill, actor.Species) + "\n(유지형: 켜고 끄는 데 행동을 쓰지 않음)");
             else if (skill.Kind != SkillKind.Passive)
             {
                 bool ok = battle.CanUseSkill(actor, out _);
                 string uses = skill.MaxUsesPerBattle > 0 ? $" {actor.SkillUses}/{skill.MaxUsesPerBattle}" : "";
-                Command(v, $"◆  {skill.Name}  (배고픔 {battle.SkillCost(actor)}{uses})", () => gm.SetPendingAction(ActionType.Skill), ok);
+                Command(v, $"◆  {skill.Name}  (배고픔 {battle.SkillCost(actor)}{uses})", () => gm.SetPendingAction(ActionType.Skill), ok,
+                    tip: InfoText.Skill(skill, actor.Species) + (ok ? "" : $"\n\n지금은 사용 불가: {Why(battle, actor)}"));
             }
-            Command(v, "■  방어", () => gm.SetPendingAction(ActionType.Defend), true);
+            Command(v, "■  방어", () => gm.SetPendingAction(ActionType.Defend), true,
+                tip: "다음 차례까지 받는 피해 절반. \"노리는 중!\"인 적이 있으면 특히 유용.");
         }
 
-        static void Command(Transform parent, string label, System.Action act, bool ok, bool highlight = false, bool selected = false)
+        static string Why(Battle b, Unit u) { b.CanUseSkill(u, out var reason); return reason; }
+
+        static void Command(Transform parent, string label, System.Action act, bool ok, bool highlight = false, bool selected = false, string tip = null)
         {
             var btn = UIFactory.Button(parent, label, act, ok,
                 bg: selected ? Theme.Selected : highlight ? new Color(0.55f, 0.43f, 0.2f) : new Color(0.2f, 0.18f, 0.16f), fontSize: 19);
             var text = btn.GetComponentInChildren<UnityEngine.UI.Text>();
-            if (text != null) { text.alignment = TextAnchor.MiddleLeft; text.rectTransform.offsetMin = new Vector2(16, 0); }
+            if (text != null) { text.alignment = TextAnchor.MiddleLeft; text.rectTransform.offsetMin = new Vector2(16, 0); text.raycastTarget = false; }
+            UIFactory.Tooltip(btn, tip);
         }
     }
 }

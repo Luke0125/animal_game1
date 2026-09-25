@@ -28,6 +28,7 @@ namespace FedAndFound.Game.UI
         {
             var rt = NewRect(parent, name);
             var img = rt.gameObject.AddComponent<Image>();
+            img.sprite = UISkin.Rounded; img.type = Image.Type.Sliced; // 둥근 모서리 (색은 color로)
             img.color = color;
             if (stretch) Stretch(rt);
             return rt;
@@ -54,9 +55,20 @@ namespace FedAndFound.Game.UI
         {
             var rt = NewRect(parent, "Button_" + label);
             var img = rt.gameObject.AddComponent<Image>();
-            img.color = interactable ? (bg ?? Theme.PanelLight) : Theme.Disabled;
+            img.sprite = UISkin.Button; img.type = Image.Type.Sliced;
+            var baseColor = bg ?? Theme.PanelLight;
+            img.color = Color.white;
             var btn = rt.gameObject.AddComponent<Button>();
             btn.interactable = interactable;
+            // 마우스를 올리면 밝아지고 누르면 어두워진다
+            var cb = btn.colors;
+            cb.normalColor = baseColor;
+            cb.highlightedColor = Color.Lerp(baseColor, Color.white, 0.25f);
+            cb.selectedColor = baseColor;
+            cb.pressedColor = Color.Lerp(baseColor, Color.black, 0.2f);
+            cb.disabledColor = Theme.Disabled;
+            cb.colorMultiplier = 1f; cb.fadeDuration = 0.08f;
+            btn.colors = cb;
             if (onClick != null) btn.onClick.AddListener(() => onClick());
             var le = rt.gameObject.AddComponent<LayoutElement>();
             le.minHeight = 44; le.preferredHeight = 44;
@@ -139,6 +151,29 @@ namespace FedAndFound.Game.UI
             if (sr == null) return;
             Canvas.ForceUpdateCanvases();
             sr.verticalNormalizedPosition = 0f;
+        }
+
+        /// <summary>마우스를 올리면 설명이 뜨게 한다 (Tooltip). 버튼·패널·라벨 어디에나.</summary>
+        public static void Tooltip(Component target, string text)
+        {
+            if (target == null || string.IsNullOrEmpty(text)) return;
+            var g = target.GetComponent<Graphic>();
+            if (g != null) g.raycastTarget = true; // 마우스 감지가 되도록
+            if (!target.TryGetComponent<TooltipTrigger>(out var t)) t = target.gameObject.AddComponent<TooltipTrigger>(); // ??는 Unity 오브젝트에 안전하지 않다
+            t.Text = text;
+        }
+
+        /// <summary>금테 창(레퍼런스의 장식 패널). 안쪽 VGroup을 돌려준다. 앵커는 화면 비율(0~1).</summary>
+        public static RectTransform Window(Transform parent, Vector2 min, Vector2 max, string title = null, bool parchment = false, int padding = 24)
+        {
+            var rt = NewRect(parent, "Window");
+            var img = rt.gameObject.AddComponent<Image>();
+            img.sprite = parchment ? UISkin.Parchment : UISkin.GoldFrame; img.type = Image.Type.Sliced;
+            Stretch(rt, min, max);
+            var v = VGroup(rt, 10, new RectOffset(padding, padding, padding - 4, padding - 4));
+            Stretch(v);
+            if (title != null) Label(v, title, 30, TextAnchor.MiddleCenter, parchment ? new Color(0.35f, 0.22f, 0.1f) : Theme.Gold, bold: true);
+            return v;
         }
 
         /// <summary>스프라이트 아이콘(초상화 등). 레이아웃 그룹 안에서는 size×size로 고정된다.</summary>

@@ -8,9 +8,7 @@ namespace FedAndFound.Game.UI.Screens
     {
         public static void Build(RectTransform root, GameManager gm)
         {
-            var layout = UIFactory.VGroup(root, 10, new RectOffset(200, 200, 60, 40));
-            UIFactory.Stretch(layout);
-            UIFactory.Label(layout, "게임 방법", 40, TextAnchor.MiddleCenter, bold: true);
+            var layout = UIFactory.Window(root, new Vector2(0.1f, 0.2f), new Vector2(0.9f, 0.95f), "게임 방법", padding: 36);
 
             string[] lines =
             {
@@ -22,10 +20,11 @@ namespace FedAndFound.Game.UI.Screens
                 $"■ 조각 {Balance.FragmentsPerGem}개 = 원석 1개 → 무리사냥 / 생명의 순환 / 적응 시너지 해금.",
                 "■ 전투에서 혼자 남으면 '홀로서기' — 동물의 실제 습성을 살린 스킬로 바뀌고, 작은 동물일수록 필사적으로 강해진다.",
                 "■ 매복 예고(노리는 중!)가 뜨면 방어를 눌러 대비하자.",
+                "■ 스킬·유물·동물 카드에 마우스를 올리면 자세한 설명이 나온다.",
             };
-            foreach (var l in lines) UIFactory.Label(layout, l, 21, TextAnchor.MiddleLeft);
+            foreach (var l in lines) UIFactory.Label(layout, l, 20, TextAnchor.MiddleLeft);
 
-            var row = UIFactory.HGroup(layout, 16, new RectOffset(300, 300, 20, 0));
+            var row = UIFactory.HGroup(layout, 16, new RectOffset(260, 260, 14, 0));
             UIFactory.FixedHeight(row, 56);
             UIFactory.Button(row, "타이틀로", () => gm.ShowFront(FrontScreen.Title), fontSize: 20);
             UIFactory.Button(row, "동료 고르기", () => gm.ShowFront(FrontScreen.SpeciesSelect), bg: Theme.Accent, fontSize: 22);

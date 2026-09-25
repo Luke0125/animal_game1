@@ -48,9 +48,12 @@ namespace FedAndFound.Game
             Field.FieldView.Create(gm);
             // 사이드뷰 전투 무대(동물 스프라이트·연출): 전투 UI의 빈 가운데로 보인다
             BattleView.BattleStageView.Create(gm);
+            // 그 밖의 화면 배경: 지형 풍경 + 걸어가는 동물들
+            BattleView.BackdropView.Create(gm);
 
             // ScreenRoot보다 나중에 만들어야 화면 갱신으로 지워지는 UI 위에 플래시가 겹쳐 보인다.
             UI.EventFeedOverlay.Create(canvasGo.transform, gm);
+            UI.Tooltip.Create(canvasGo.transform); // 맨 위: 마우스 올리면 설명
         }
     }
 }

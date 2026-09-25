@@ -12,9 +12,10 @@
   - `Bootstrap.cs` 씬 로드 시 카메라·EventSystem·Canvas·GameManager를 코드로 생성(씬 파일은 완전히 비워둠)
   - `GameManager.cs` RunState 보유 + 상태 변경 메서드(전부 끝에 `Refresh()` 호출) + `OnChanged` 이벤트
   - `ScreenRouter.cs` `OnChanged`마다 화면 전체를 지우고 `Run.Phase`에 맞는 `UI/Screens/*` 화면을 다시 그림
-  - `UI/UIFactory.cs` 코드로 uGUI 조립(Panel/Label/Button/Bar/VGroup/HGroup/ScrollList). 새 화면도 이것만 쓴다.
+  - `UI/UIFactory.cs` 코드로 uGUI 조립(Panel/Label/Button/Bar/VGroup/HGroup/ScrollList/Window/Icon/Tooltip). 새 화면도 이것만 쓴다. 스킨은 `UI/UISkin`(코드로 만든 9-slice), 설명은 마우스 올리면 뜨는 `UIFactory.Tooltip`(문구는 `Screens/InfoText`).
   - `UI/Screens/*` 화면 11개: 타이틀/인트로/게임 방법(런 전, `GameManager.Front`) + 종 선택/유물 장착/맵/전투/전투 후/이벤트/작별/결과
   - 데모 모드(7단계): 타이틀 토글 또는 에디터/개발 빌드 → 맵·전투에 치트 패널. 치트는 Core `Debug*` 메서드만 호출. 시연 순서 `docs/DEMO_SCRIPT.md`
+  - `Battle/BackdropView`+`Scenery`: 맵·전투 외 화면 뒤의 지형 풍경 + 걸어가는 동물들.
   - `Battle/*` 사이드뷰 전투 무대(그래픽 1차): `BattleStageView`(월드 공간, Battle 단계에서만, `OnBattleEvent`로 돌진·피격·데미지 숫자·정화·기절 연출), `UnitView`(동물 1마리), `AnimalArt`(13종 픽셀 스프라이트를 코드로 생성). 전투 UI(`BattleScreen`)는 틀만 그리고 가운데를 비운다.
   - `Field/*` 탑뷰 필드(4단계): `FieldView`(월드 Tilemap+파티 말, Map 단계에서만 표시, 걸어서 노드 진입), `FieldLayout`(칸 좌표·길·BFS), `TerrainTiles`(지형 4종 타일을 코드로 생성). 맵 화면 HUD는 가운데를 비워 필드가 보이게 한다.
 - `.claude/skills/` — Unity 공식 플러그인에서 이 프로젝트에 필요한 스킬 5개만 발췌(uGUI, unity-cli, 픽셀퍼펙트, 타일맵, TMP 한글폰트). 한글 폰트: `Assets/Resources/Fonts/NanumGothic.ttf`(런타임 Resources.Load용).

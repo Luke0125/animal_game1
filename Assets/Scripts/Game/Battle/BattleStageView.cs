@@ -17,7 +17,7 @@ namespace FedAndFound.Game.BattleView
         const float UnitScale = 2.4f, FeetY = -0.9f, Spacing = 2.3f, FirstX = 2.3f;
 
         GameManager _gm;
-        GameObject _world, _bgRoot;
+        GameObject _world;
         Battle _built;
         readonly Dictionary<Unit, UnitView> _views = new Dictionary<Unit, UnitView>();
         static Sprite _white, _glow, _tri, _circle;
@@ -70,7 +70,7 @@ namespace FedAndFound.Game.BattleView
             _built = b;
             foreach (Transform child in _world.transform) Destroy(child.gameObject);
             _views.Clear();
-            BuildBackground(_gm.Run.Terrain);
+            Scenery.Build(_world.transform, _gm.Run.Terrain);
             for (int i = 0; i < b.Allies.Count; i++) AddUnit(b.Allies[i], new Vector3(-FirstX - Spacing * i, FeetY + (i % 2) * 0.25f, 0));
             for (int i = 0; i < b.Enemies.Count; i++) AddUnit(b.Enemies[i], new Vector3(FirstX + Spacing * i, FeetY + (i % 2) * 0.25f, 0));
         }
@@ -83,65 +83,6 @@ namespace FedAndFound.Game.BattleView
             var v = go.AddComponent<UnitView>();
             v.Setup(u, u.IsBoss ? UnitScale * 1.35f : UnitScale);
             _views[u] = v;
-        }
-
-        // ================= 배경 (지형별) =================
-
-        void BuildBackground(Terrain t)
-        {
-            _bgRoot = new GameObject("Background");
-            _bgRoot.transform.SetParent(_world.transform, false);
-            var tiles = TerrainTiles.Get(t);
-            var (skyTop, skyBottom, hill) = t switch
-            {
-                Terrain.Swamp => (C(0.30f, 0.38f, 0.36f), C(0.62f, 0.66f, 0.55f), C(0.22f, 0.32f, 0.25f)),
-                Terrain.SnowMountain => (C(0.45f, 0.62f, 0.86f), C(0.88f, 0.93f, 0.98f), C(0.70f, 0.78f, 0.88f)),
-                Terrain.Desert => (C(0.93f, 0.62f, 0.35f), C(1.00f, 0.88f, 0.66f), C(0.80f, 0.55f, 0.32f)),
-                _ => (C(0.40f, 0.66f, 0.92f), C(0.80f, 0.90f, 0.95f), C(0.30f, 0.52f, 0.30f)),
-            };
-
-            // 하늘 그라데이션
-            var sky = Quad(_bgRoot.transform, "Sky", Gradient(skyTop, skyBottom), -100);
-            sky.transform.localPosition = new Vector3(0, 2.2f, 0);
-            sky.transform.localScale = new Vector3(22f, 7.5f, 1);
-
-            // 먼 언덕(원을 겹쳐 능선처럼)
-            var rng = new System.Random((int)t * 97 + 3);
-            for (int i = 0; i < 9; i++)
-            {
-                var h = new GameObject("Hill").AddComponent<SpriteRenderer>();
-                h.transform.SetParent(_bgRoot.transform, false);
-                h.sprite = CircleSprite; h.sortingOrder = -90;
-                h.color = Color.Lerp(hill, skyBottom, 0.35f + 0.25f * (i % 2));
-                float w = 3.5f + (float)rng.NextDouble() * 3f;
-                h.transform.localPosition = new Vector3(-10 + i * 2.6f, -0.9f + (float)rng.NextDouble() * 0.6f, 0);
-                h.transform.localScale = new Vector3(w, w * 0.8f, 1);
-            }
-
-            // 바닥: 필드와 같은 지형 타일
-            for (int y = -6; y <= -1; y++)
-                for (int x = -11; x <= 11; x++)
-                {
-                    var g = new GameObject("Ground").AddComponent<SpriteRenderer>();
-                    g.transform.SetParent(_bgRoot.transform, false);
-                    g.sprite = tiles.Ground[rng.Next(tiles.Ground.Length)].sprite;
-                    g.sortingOrder = -80;
-                    g.transform.localPosition = new Vector3(x, y + 0.2f, 0);
-                    g.color = y == -1 ? Color.Lerp(Color.white, Color.black, 0.08f) : Color.white;
-                }
-
-            // 뒤쪽 장식(나무·선인장 등) — 유닛과 겹치지 않게 윗줄에만, 조금 어둡게
-            for (int i = 0; i < 12; i++)
-            {
-                var d = new GameObject("Deco").AddComponent<SpriteRenderer>();
-                d.transform.SetParent(_bgRoot.transform, false);
-                d.sprite = tiles.Deco[rng.Next(tiles.Deco.Length)].sprite;
-                d.sortingOrder = -70;
-                d.color = new Color(0.78f, 0.8f, 0.82f);
-                float s = 1.6f + (float)rng.NextDouble() * 0.8f;
-                d.transform.localPosition = new Vector3(-10 + i * 1.8f + (float)rng.NextDouble(), -0.25f + (float)rng.NextDouble() * 0.3f, 0);
-                d.transform.localScale = new Vector3(s, s, 1);
-            }
         }
 
         // ================= 이벤트 연출 =================
@@ -220,23 +161,6 @@ namespace FedAndFound.Game.BattleView
         internal static Sprite CircleSprite => _circle ??= TerrainTiles.Circle(64, Color.white, Color.white);
         internal static Sprite TriangleSprite => _tri ??= MakeSprite(Triangle(16), 16, new Vector2(0.5f, 0f));
 
-        static SpriteRenderer Quad(Transform parent, string name, Sprite s, int order)
-        {
-            var sr = new GameObject(name).AddComponent<SpriteRenderer>();
-            sr.transform.SetParent(parent, false);
-            sr.sprite = s; sr.sortingOrder = order;
-            return sr;
-        }
-
-        static Sprite Gradient(Color top, Color bottom)
-        {
-            var px = new Color[2 * 64];
-            for (int y = 0; y < 64; y++) { var c = Color.Lerp(bottom, top, y / 63f); px[y * 2] = c; px[y * 2 + 1] = c; }
-            var tex = new Texture2D(2, 64, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
-            tex.SetPixels(px); tex.Apply();
-            return Sprite.Create(tex, new Rect(0, 0, 2, 64), new Vector2(0.5f, 0.5f), 64); // 1×1 유닛 → localScale로 늘림
-        }
-
         static Color[] Solid(int n, Color c) { var px = new Color[n * n]; for (int i = 0; i < px.Length; i++) px[i] = c; return px; }
 
         static Color[] Radial(int n)
@@ -272,6 +196,5 @@ namespace FedAndFound.Game.BattleView
             return Sprite.Create(tex, new Rect(0, 0, n, n), pivot, n);
         }
 
-        static Color C(float r, float g, float b) => new Color(r, g, b);
     }
 }

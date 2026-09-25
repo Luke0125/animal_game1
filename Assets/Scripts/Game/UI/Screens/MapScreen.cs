@@ -57,7 +57,8 @@ namespace FedAndFound.Game.UI.Screens
                 string label = run.HasSynergy(d)
                     ? $"[해금] {Synergies.SkillName(d)}"
                     : $"{Synergies.GemName(d)} 제작 → {Synergies.SkillName(d)} (조각 3)";
-                UIFactory.Button(gemRow, label, () => gm.CraftGem(d), interactable: run.CanCraftGem(d), fontSize: 15);
+                var gem = UIFactory.Button(gemRow, label, () => gm.CraftGem(d), interactable: run.CanCraftGem(d), fontSize: 15);
+                UIFactory.Tooltip(gem, $"{Synergies.GemName(d)} → {Synergies.SkillName(d)}\n{Synergies.Desc(d)}\n\n같은 식성 조각 {Balance.FragmentsPerGem}개(부족분은 만능 조각)로 제작. 한 번 만들면 이번 런 동안 계속 켜진다.");
             }
             // 아직 없는 시너지의 효과를 미리 보여 줘야 어떤 원석을 먼저 만들지 고를 수 있다
             var locked = new[] { Diet.Herbivore, Diet.Carnivore, Diet.Omnivore }.Where(d => !run.HasSynergy(d)).ToList();
@@ -137,9 +138,13 @@ namespace FedAndFound.Game.UI.Screens
 
         static void PartyMiniCard(Transform parent, Unit a)
         {
-            var card = UIFactory.Panel(parent, "Mini", Theme.Panel, stretch: false);
-            var v = UIFactory.VGroup(card, 2, new RectOffset(6, 6, 4, 4));
-            UIFactory.Stretch(v);
+            var card = UIFactory.Panel(parent, "Mini", new Color(0.2f, 0.17f, 0.13f), stretch: false);
+            UIFactory.Tooltip(card, InfoText.Species(a.Species));
+            var h = UIFactory.HGroup(card, 6, new RectOffset(6, 6, 3, 3));
+            UIFactory.Stretch(h);
+            var face = UIFactory.Icon(h, BattleView.AnimalArt.Get(a.Species.Id), 60);
+            if (a.Fainted) face.color = new Color(0.4f, 0.4f, 0.4f);
+            var v = UIFactory.VGroup(h, 2);
             UIFactory.Label(v, a.Fainted ? $"{a.Name}(기절)" : a.Name, 16, TextAnchor.MiddleCenter);
             UIFactory.Bar(v, a.HpRatio, a.HpRatio > 0.3f ? Theme.HpBar : Theme.HpBarLow, $"{a.Hp}/{a.MaxHp}", 12);
             UIFactory.Bar(v, (float)a.Hunger / Balance.MaxHunger, Theme.HungerBar, $"배고픔 {a.Hunger}", 12);

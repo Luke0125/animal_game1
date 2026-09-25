@@ -428,6 +428,18 @@ namespace FedAndFound.Core
             return taunter != null && Rng.Chance(0.4f) ? taunter : Rng.Pick(targets);
         }
 
+        /// <summary>적이 이 스킬을 쓸 때의 효과 설명 (UI 툴팁). 아군과 다르게 바뀐 스킬만 따로 적는다.</summary>
+        public static string EnemySkillDesc(SkillData s) => s.Id switch
+        {
+            SkillId.Soothe => "다친 적 1명의 HP를 15% 회복",
+            SkillId.Mimic => "우리 파티가 마지막으로 쓴 스킬을 흉내 냄",
+            SkillId.Frenzy => "패시브: HP가 절반 아래면 공격력 ×1.3",
+            SkillId.Wits => "뒤에 행동할 적 1명의 차례를 2칸 앞당김",
+            SkillId.Shell or SkillId.Tenacity or SkillId.Spines => $"HP 60% 아래에서 켬 — {s.Desc}",
+            SkillId.Ambush => "몸을 낮추고 노림 → 다음 공격 ×2.6 (\"노리는 중!\"이 뜨면 방어!)",
+            _ => s.Desc,
+        };
+
         /// <summary>적이 쓸 수 있는 스킬이면 실행하고 true. 쓸 상황이 아니면 false(→ 기본 공격).
         /// 효과는 아군 버전과 최대한 같게 하되, 적에게 의미 없는 스킬은 적 전용으로 바꿨다(달래기 = 적 회복).</summary>
         bool TryEnemySkill(Unit e, SkillId id, List<Unit> targets)

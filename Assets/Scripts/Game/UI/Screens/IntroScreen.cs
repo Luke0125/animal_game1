@@ -18,16 +18,17 @@ namespace FedAndFound.Game.UI.Screens
         public static void Build(RectTransform root, GameManager gm)
         {
             int page = Mathf.Clamp(gm.IntroPage, 0, Pages.Length - 1);
-            var layout = UIFactory.VGroup(root, 24, new RectOffset(260, 260, 260, 80));
-            UIFactory.Stretch(layout);
+            // 양피지 두루마리에 쓴 이야기
+            var layout = UIFactory.Window(root, new Vector2(0.18f, 0.3f), new Vector2(0.82f, 0.82f), parchment: true, padding: 48);
+            UIFactory.Label(layout, " ", 10);
+            UIFactory.Label(layout, Pages[page], 30, TextAnchor.MiddleCenter, Theme.Ink);
+            UIFactory.Label(layout, " ", 10);
+            UIFactory.Label(layout, $"{page + 1} / {Pages.Length}", 18, TextAnchor.MiddleCenter, new Color(0.5f, 0.38f, 0.25f));
 
-            UIFactory.Label(layout, Pages[page], 30, TextAnchor.MiddleCenter);
-            UIFactory.Label(layout, $"{page + 1} / {Pages.Length}", 18, TextAnchor.MiddleCenter, Theme.TextDim);
-
-            var row = UIFactory.HGroup(layout, 16, new RectOffset(300, 300, 0, 0));
+            var row = UIFactory.HGroup(layout, 16, new RectOffset(160, 160, 0, 0));
             UIFactory.FixedHeight(row, 56);
             UIFactory.Button(row, "건너뛰기", () => gm.ShowFront(FrontScreen.SpeciesSelect), fontSize: 20);
-            UIFactory.Button(row, page == Pages.Length - 1 ? "동료 고르기" : "다음", () => gm.NextIntroPage(Pages.Length), bg: Theme.Accent, fontSize: 22);
+            UIFactory.Button(row, page == Pages.Length - 1 ? "동료 고르기" : "다음", () => gm.NextIntroPage(Pages.Length), bg: new Color(0.55f, 0.43f, 0.2f), fontSize: 22);
         }
     }
 }

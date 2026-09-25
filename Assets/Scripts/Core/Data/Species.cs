@@ -82,6 +82,21 @@ namespace FedAndFound.Core
             Add("hedgehog", "고슴도치", Diet.Omnivore, Size.Small, 10, 85, 8, 14, 9, new SkillData(SkillId.Spines, "가시 세우기", SkillKind.Sustain, Balance.SustainCostPerTurn, SkillTarget.None));
             Add("monkey", "원숭이", Diet.Omnivore, Size.Small, 7, 80, 10, 8, 10, new SkillData(SkillId.Mimic, "모방", SkillKind.Active, 10, SkillTarget.None));
             Add("boar", "멧돼지", Diet.Omnivore, Size.Medium, 6, 115, 13, 10, 5, new SkillData(SkillId.Rampage, "저돌", SkillKind.Active, 10, SkillTarget.Enemy));
+            // ===== 기본 스킬 설명 (§5.2, UI 툴팁용) =====
+            Desc("rabbit", "이번 라운드 파티 전체 정화 확률 +8%p");
+            Desc("turtle", "켜 두는 동안 받는 피해 -32% (매 라운드 배고픔 4)");
+            Desc("gazelle", "다음 차례까지 자신에 대한 공격 회피 40%");
+            Desc("rhino", "방어를 무시하는 강한 단일 공격 (계수 2.2)");
+            Desc("lion", "패시브: 배고플수록 공격력 최대 +80%, 대신 배고플수록 동료를 잘못 물 확률(최대 20%)");
+            Desc("leopard", "이번 차례는 쉬고, 다음 첫 공격 피해 ×2.6 (전투당 2회)");
+            Desc("snake", "단일 공격(계수 1.0) + 3턴 동안 독 피해");
+            Desc("badger", "켜 두는 동안 적 공격의 40%를 자신에게 끌어오고 받는 피해 -15% (매 라운드 배고픔 4)");
+            Desc("fox", "동료 1마리의 행동 순서를 2칸 앞당김");
+            Desc("hedgehog", "켜 두는 동안 맞으면 받은 피해의 30%를 되돌려 줌 (매 라운드 배고픔 4)");
+            Desc("monkey", "직전에 동료가 쓴 액티브 스킬을 따라 함 (배고픔은 자기 몫 10만)");
+            Desc("boar", "강한 단일 공격(계수 1.8), 대신 1턴 동안 자신 방어 -20%");
+            Desc(GuestId, "자신의 배고픔 5를 써서 동료 1마리 HP를 최대치의 20% 회복");
+
             // ===== 홀로서기 (§4.4 확장, 6단계 팀 결정: "스킬 변형형 + 실제 동물 특성") =====
             Solo("rabbit", new SkillData(SkillId.Burrow, "토끼굴", SkillKind.Active, 5, SkillTarget.None, 0,
                 "굴에 숨었다가 튀어나온다: 다음 차례까지 피해 -50%·회피 40%, HP 15% 회복, 다음 공격 ×2.0(뒷발차기)"), "토끼는 땅굴을 파서 천적을 피한다");
@@ -117,6 +132,8 @@ namespace FedAndFound.Core
             All[id] = s;
             if (roster) Roster.Add(s);
         }
+
+        static void Desc(string id, string text) => All[id].Skill.Desc = text;
 
         static void Solo(string id, SkillData s, string trait) { All[id].SoloSkill = s; All[id].SoloTrait = trait; }
 

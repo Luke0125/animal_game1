@@ -7,11 +7,9 @@ namespace FedAndFound.Game.UI.Screens
     {
         public static void Build(RectTransform root, GameManager gm, bool victory)
         {
-            var layout = UIFactory.VGroup(root, 16, new RectOffset(24, 24, 24, 24));
-            UIFactory.Stretch(layout);
-
-            UIFactory.Label(layout, victory ? "여정 끝 — 모두 집으로 돌아갔다" : "게임 오버 — 파티 전멸", 32, TextAnchor.MiddleCenter, bold: true,
-                color: victory ? Theme.Accent : Theme.Danger);
+            var layout = UIFactory.Window(root, new Vector2(0.18f, 0.22f), new Vector2(0.82f, 0.95f), padding: 30);
+            UIFactory.Label(layout, victory ? "여정 끝 — 모두 집으로 돌아갔다" : "게임 오버 — 파티 전멸", 36, TextAnchor.MiddleCenter, bold: true,
+                color: victory ? Theme.Gold : Theme.Danger);
 
             var log = UIFactory.ScrollList(layout, 300);
             foreach (var line in gm.Run.Log) UIFactory.Label(log, line, 16, TextAnchor.MiddleLeft, Theme.TextDim);
