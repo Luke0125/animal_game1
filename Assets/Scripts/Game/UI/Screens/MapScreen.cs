@@ -21,13 +21,15 @@ namespace FedAndFound.Game.UI.Screens
             UIFactory.Stretch(layout);
 
             UIFactory.Label(layout, $"{run.Stage}스테이지 — {RunState.TerrainName(run.Terrain)}  (이동 {run.NodesMoved}/{RunState.NodesBeforeBoss})", 26, TextAnchor.MiddleCenter, bold: true);
-            UIFactory.Label(layout, $"고기 {run.Meat}  열매 {run.Fruit}   조각(초/육/잡) {run.Fragments[Diet.Herbivore]}/{run.Fragments[Diet.Carnivore]}/{run.Fragments[Diet.Omnivore]}  만능 {run.UniversalFragments}   원석(초/육/잡) {run.Gems[Diet.Herbivore]}/{run.Gems[Diet.Carnivore]}/{run.Gems[Diet.Omnivore]}",
-                17, TextAnchor.MiddleCenter, Theme.TextDim);
+            UIFactory.Label(layout, $"고기 {run.Meat}   열매 {run.Fruit}   (조각·원석은 왼쪽 아래 원석 도감)", 17, TextAnchor.MiddleCenter, Theme.TextDim);
             UIFactory.Label(layout, SynergySummary(run, null), 16, TextAnchor.MiddleCenter, Theme.Selected);
 
             var partyRow = UIFactory.HGroup(layout, 8);
             UIFactory.FixedHeight(partyRow, 70);
             foreach (var a in run.Party) PartyMiniCard(partyRow, a);
+
+            TerrainSign(root, run);
+            GemCodex(root, run);
 
             var bottom = UIFactory.Panel(root, "BottomHud", new Color(Theme.Background.r, Theme.Background.g, Theme.Background.b, 0.88f));
             UIFactory.Stretch(bottom, Vector2.zero, new Vector2(1, 0.17f));
@@ -64,6 +66,45 @@ namespace FedAndFound.Game.UI.Screens
             var locked = new[] { Diet.Herbivore, Diet.Carnivore, Diet.Omnivore }.Where(d => !run.HasSynergy(d)).ToList();
             if (locked.Count > 0)
                 UIFactory.Label(bl, string.Join("   ", locked.Select(d => $"{Synergies.SkillName(d)}: {ShortDesc(d)}")), 13, TextAnchor.MiddleCenter, Theme.TextDim);
+        }
+
+        /// <summary>레퍼런스의 양피지 지형 표지판: 지형 이름 + 그 지형의 장식 그림.</summary>
+        static void TerrainSign(RectTransform root, RunState run)
+        {
+            var v = UIFactory.Window(root, new Vector2(0.01f, 0.56f), new Vector2(0.13f, 0.78f), parchment: true, padding: 16);
+            UIFactory.Label(v, RunState.TerrainName(run.Terrain), 30, TextAnchor.MiddleCenter, Theme.Ink, bold: true);
+            var tiles = Field.TerrainTiles.Get(run.Terrain);
+            var row = UIFactory.HGroup(v, 2);
+            UIFactory.FixedHeight(row, 64);
+            foreach (var d in tiles.Deco) UIFactory.Icon(row, d.sprite, 56);
+            UIFactory.Label(v, $"{run.Stage}스테이지", 15, TextAnchor.MiddleCenter, new Color(0.45f, 0.32f, 0.2f));
+        }
+
+        public static Color GemColor(Diet d) => d switch
+        {
+            Diet.Herbivore => new Color(0.35f, 0.78f, 0.38f), Diet.Carnivore => new Color(0.88f, 0.28f, 0.28f), _ => new Color(0.98f, 0.72f, 0.22f),
+        };
+
+        /// <summary>레퍼런스의 "원석 도감": 식성별 원석(가졌으면 빛나고 없으면 ?) + 조각 수. 마우스를 올리면 시너지 설명.</summary>
+        static void GemCodex(RectTransform root, RunState run)
+        {
+            var v = UIFactory.Window(root, new Vector2(0.01f, 0.19f), new Vector2(0.2f, 0.54f), padding: 16);
+            UIFactory.Label(v, "원석 도감", 22, TextAnchor.MiddleCenter, Theme.Gold, bold: true);
+            var row = UIFactory.HGroup(v, 6);
+            UIFactory.FixedHeight(row, 110);
+            foreach (Diet d in new[] { Diet.Herbivore, Diet.Carnivore, Diet.Omnivore })
+            {
+                bool owned = run.HasSynergy(d);
+                var slot = UIFactory.Panel(row, "Slot", new Color(0.05f, 0.05f, 0.05f, 0.6f), stretch: false);
+                UIFactory.Tooltip(slot, $"{Synergies.GemName(d)} → {Synergies.SkillName(d)} {(owned ? "(해금됨)" : "(미획득)")}\n{Synergies.Desc(d)}\n\n{SpeciesSelectScreen.DietName(d)} 조각 {run.Fragments[d]}/{Balance.FragmentsPerGem}");
+                var sv = UIFactory.VGroup(slot, 2, new RectOffset(4, 4, 6, 4));
+                UIFactory.Stretch(sv);
+                var gem = UIFactory.Icon(sv, UISkin.Gem(GemColor(d), (int)d), 56);
+                if (!owned) gem.color = new Color(0.2f, 0.2f, 0.2f, 0.9f); // 미획득 = 어두운 실루엣
+                UIFactory.Label(sv, owned ? Synergies.SkillName(d) : $"조각 {run.Fragments[d]}/{Balance.FragmentsPerGem}", 13, TextAnchor.MiddleCenter,
+                    owned ? Theme.Gold : Theme.TextDim);
+            }
+            UIFactory.Label(v, $"만능 조각 {run.UniversalFragments}  (어느 원석에나 사용)", 14, TextAnchor.MiddleCenter, Theme.TextDim);
         }
 
         static string ShortDesc(Diet d) => d switch

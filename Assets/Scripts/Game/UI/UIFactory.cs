@@ -69,7 +69,7 @@ namespace FedAndFound.Game.UI
             cb.disabledColor = Theme.Disabled;
             cb.colorMultiplier = 1f; cb.fadeDuration = 0.08f;
             btn.colors = cb;
-            if (onClick != null) btn.onClick.AddListener(() => onClick());
+            if (onClick != null) btn.onClick.AddListener(() => { Audio.SoundManager.Play(Audio.Sfx.Click, 0.6f); onClick(); });
             var le = rt.gameObject.AddComponent<LayoutElement>();
             le.minHeight = 44; le.preferredHeight = 44;
             Label(rt, label, fontSize, TextAnchor.MiddleCenter, interactable ? Theme.Text : Theme.TextDim);

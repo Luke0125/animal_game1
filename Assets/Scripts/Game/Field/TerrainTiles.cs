@@ -18,6 +18,8 @@ namespace FedAndFound.Game.Field
         public Tile Path;
         public Tile[] Deco;     // 장식(나무·갈대·전나무·선인장 등) — 길 밖에만 놓는다
         public Tile Water;      // 늪의 웅덩이 등 (없으면 null)
+        public Tile Cliff, CliffDark; // 떠 있는 섬의 절벽(맵 아트 2차): 윗줄은 바닥색 턱, 아래로 갈수록 어두운 암석
+        public Color Sky;       // 섬 뒤 하늘색
         public Color Backdrop;  // 카메라 배경색
         public Color PathAccent;
 
@@ -36,14 +38,16 @@ namespace FedAndFound.Game.Field
             switch (t)
             {
                 case Terrain.Plains:
-                    r.Backdrop = C(0x2E4A2A);
+                    r.Backdrop = C(0x2E4A2A); r.Sky = C(0x8EC3EA);
+                    Cliffs(r, rng, C(0x5E9E4A), C(0x7A5A3A), C(0x5A4028));
                     r.Ground = GroundSet(rng, C(0x5E9E4A), C(0x6FB356), C(0x4E8A3E));
                     r.Path = Speckled(rng, C(0xC9A66B), C(0xB08F58), 0.25f);
                     r.PathAccent = C(0xF3E3B5);
                     r.Deco = new[] { MakeTile(DrawTree(C(0x3F7F35), C(0x2C5E26), C(0x6B4A2B))), MakeTile(DrawFlowers(rng, C(0xF2E35C), C(0xE86A8A))), MakeTile(DrawBush(C(0x4A8C3C), C(0x356B2C))) };
                     break;
                 case Terrain.Swamp:
-                    r.Backdrop = C(0x1F2B22);
+                    r.Backdrop = C(0x1F2B22); r.Sky = C(0x8FA8A0);
+                    Cliffs(r, rng, C(0x4A5A3A), C(0x4A4034), C(0x33291F));
                     r.Ground = GroundSet(rng, C(0x4A5A3A), C(0x55663F), C(0x3E4D31));
                     r.Path = Planks(C(0x7A5A3A), C(0x5A402A));
                     r.PathAccent = C(0xB9D39A);
@@ -51,14 +55,16 @@ namespace FedAndFound.Game.Field
                     r.Deco = new[] { MakeTile(DrawReeds(rng, C(0x8FA35A), C(0x6B4A2B))), MakeTile(DrawLilyPad(C(0x355B55), C(0x6FA650))), MakeTile(DrawBush(C(0x3C5230), C(0x2A3B22))) };
                     break;
                 case Terrain.SnowMountain:
-                    r.Backdrop = C(0x2A3440);
+                    r.Backdrop = C(0x2A3440); r.Sky = C(0x9CC0E8);
+                    Cliffs(r, rng, C(0xE6EEF4), C(0x7C8894), C(0x5E6873));
                     r.Ground = GroundSet(rng, C(0xE6EEF4), C(0xF4F8FB), C(0xCFDCE6));
                     r.Path = Speckled(rng, C(0x9FB2C2), C(0x8A9DAE), 0.3f);
                     r.PathAccent = C(0x5AA0E0);
                     r.Deco = new[] { MakeTile(DrawPine(C(0x2F5A48), C(0xF4F8FB))), MakeTile(DrawRock(C(0x7C8894), C(0x5E6873), C(0xF4F8FB))), MakeTile(DrawPine(C(0x264B3C), C(0xE6EEF4))) };
                     break;
                 default: // 사막
-                    r.Backdrop = C(0x4A3A22);
+                    r.Backdrop = C(0x4A3A22); r.Sky = C(0xF2C48A);
+                    Cliffs(r, rng, C(0xE3C27A), C(0xB5723F), C(0x8E5530));
                     r.Ground = GroundSet(rng, C(0xE3C27A), C(0xEBCD8A), C(0xD4B26A));
                     r.Path = Speckled(rng, C(0xC49A55), C(0xB08845), 0.3f);
                     r.PathAccent = C(0xFFF1C4);
@@ -156,6 +162,41 @@ namespace FedAndFound.Game.Field
             Set(px, 3, 2, gap); Set(px, 11, 6, gap); Set(px, 6, 10, gap); Set(px, 13, 14, gap);
             return MakeTile(px);
         }
+
+        /// <summary>절벽 타일 2종: 윗줄(바닥색 턱 + 암석 결)과 아랫줄(더 어두운 암석, 아래로 갈수록 흐려짐).</summary>
+        static void Cliffs(TerrainTiles r, System.Random rng, Color lip, Color rock, Color dark)
+        {
+            var top = Fill(rock);
+            FillRect(top, 0, 12, Px, 4, lip);                                  // 위쪽 턱(풀·눈·모래)
+            for (int x = 0; x < Px; x += 1 + rng.Next(3)) Set(top, x, 11, lip); // 들쭉날쭉한 가장자리
+            for (int y = 2; y < 11; y += 4) FillRect(top, 0, y, Px, 1, dark);  // 지층
+            for (int i = 0; i < 4; i++) FillRect(top, rng.Next(Px), rng.Next(2, 10), 1, 3, dark); // 균열
+            r.Cliff = MakeTile(top);
+
+            var bottom = Fill(dark);
+            for (int y = 3; y < Px; y += 5) FillRect(bottom, 0, y, Px, 1, rock);
+            for (int y = 0; y < 5; y++) for (int x = 0; x < Px; x++) if (rng.NextDouble() < 0.5 - y * 0.08) Set(bottom, x, y, Color.clear); // 아래 끝이 부서진 느낌
+            r.CliffDark = MakeTile(bottom);
+        }
+
+        /// <summary>노드 돌판(레퍼런스의 둥근 돌 발판): 위는 밝은 면, 아래는 두께. color로 물들인다.</summary>
+        public static Sprite StoneDisc()
+        {
+            if (_disc != null) return _disc;
+            const int n = 32;
+            var px = new Color[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = (x - 15.5f) / 15f;
+                    float top = (y - 18f) / 10f, side = (y - 13f) / 10f;
+                    bool inTop = dx * dx + top * top <= 1f, inSide = dx * dx + side * side <= 1f || (Mathf.Abs(dx) <= 1f && y >= 13 && y <= 18);
+                    if (inTop) px[y * n + x] = dx * dx + top * top > 0.8f ? new Color(0.72f, 0.7f, 0.66f) : Color.Lerp(Color.white, new Color(0.9f, 0.88f, 0.84f), (18 - y) / 10f);
+                    else if (inSide) px[y * n + x] = new Color(0.55f, 0.52f, 0.48f);
+                }
+            return _disc = MakeSprite(px, n);
+        }
+        static Sprite _disc;
 
         // ================= 장식 그림 (투명 배경) =================
 

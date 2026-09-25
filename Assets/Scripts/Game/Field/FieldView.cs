@@ -24,7 +24,9 @@ namespace FedAndFound.Game.Field
         GameObject _world;
         Tilemap _ground, _deco;
         Transform _player;
+        SpriteRenderer _playerBody;
         TextMesh _playerLabel;
+        Transform _clouds;
         readonly Dictionary<Vector2Int, NodeMarker> _markers = new Dictionary<Vector2Int, NodeMarker>();
         readonly HashSet<Vector2Int> _visited = new HashSet<Vector2Int>();
 
@@ -41,7 +43,7 @@ namespace FedAndFound.Game.Field
         sealed class NodeMarker
         {
             public int Row; public NodeType Type;
-            public SpriteRenderer Ring; public TextMesh Label;
+            public SpriteRenderer Ring, Glow; public TextMesh Label;
         }
 
         public static FieldView Create(GameManager gm)
@@ -77,15 +79,21 @@ namespace FedAndFound.Game.Field
             _ground = NewTilemap(grid.transform, "Ground", 0);
             _deco = NewTilemap(grid.transform, "Deco", 1);
 
+            // 파티 말 = 파티 대표 동물 그림 (맵 아트 2차)
             var playerGo = new GameObject("Party");
             playerGo.transform.SetParent(_world.transform, false);
-            var sr = playerGo.AddComponent<SpriteRenderer>();
-            sr.sprite = TerrainTiles.Circle(32, new Color(0.98f, 0.93f, 0.8f), new Color(0.2f, 0.15f, 0.1f));
-            sr.sortingOrder = 20;
-            playerGo.transform.localScale = Vector3.one * 0.8f;
             _player = playerGo.transform;
-            _playerLabel = NewText(_player, "", new Vector3(0, 0.95f, 0), 22, new Color(1f, 1f, 1f), 21);
-            _playerLabel.transform.localScale = Vector3.one * 1.25f; // 부모 축소(0.8) 상쇄
+            var shadow = new GameObject("Shadow").AddComponent<SpriteRenderer>();
+            shadow.transform.SetParent(_player, false);
+            shadow.sprite = BattleView.BattleStageView.GlowSprite; shadow.sortingOrder = 19;
+            shadow.color = new Color(0, 0, 0, 0.45f);
+            shadow.transform.localPosition = new Vector3(0, -0.35f, 0);
+            shadow.transform.localScale = new Vector3(1.2f, 0.3f, 1);
+            _playerBody = new GameObject("Body").AddComponent<SpriteRenderer>();
+            _playerBody.transform.SetParent(_player, false);
+            _playerBody.sortingOrder = 20;
+            _playerBody.transform.localScale = Vector3.one * 1.3f;
+            _playerLabel = NewText(_player, "", new Vector3(0, 1.35f, 0), 22, new Color(1f, 1f, 1f), 21);
 
             gm.OnChanged += Sync;
             Sync();
@@ -144,6 +152,7 @@ namespace FedAndFound.Game.Field
 
             var leader = run.Party.Find(u => !u.Fainted) ?? (run.Party.Count > 0 ? run.Party[0] : null);
             _playerLabel.text = leader != null ? leader.Name + (run.Party.Count > 1 ? $" 외 {run.Party.Count - 1}" : "") : "";
+            if (leader != null) _playerBody.sprite = BattleView.AnimalArt.Get(leader.Species.Id);
         }
 
         void BuildStage(RunState run)
@@ -157,8 +166,9 @@ namespace FedAndFound.Game.Field
             SnapCamera();
 
             var tiles = TerrainTiles.Get(run.Terrain);
-            if (_cam != null) _cam.backgroundColor = tiles.Backdrop;
+            if (_cam != null) _cam.backgroundColor = tiles.Sky; // 섬 바깥은 하늘 (레퍼런스: 하늘에 떠 있는 섬)
             _ground.ClearAllTiles(); _deco.ClearAllTiles();
+            BuildClouds(run.Stage);
 
             // 장식 배치는 게임 난수(run.Rng)를 건드리지 않도록 별도 시드를 쓴다 — 전투 결과가 화면 때문에 바뀌면 안 된다
             var rng = new System.Random(run.Stage * 7919 + (int)run.Terrain * 131 + 7);
@@ -168,6 +178,7 @@ namespace FedAndFound.Game.Field
                 {
                     var c = new Vector2Int(x, y);
                     var pos = new Vector3Int(x, y, 0);
+                    if (!InIsland(x, y, run.Stage)) continue;
                     if (path.Contains(c)) { _ground.SetTile(pos, tiles.Path); continue; }
                     bool nearPath = NearPath(c, path);
                     if (tiles.Water != null && !nearPath && rng.NextDouble() < 0.14)
@@ -178,6 +189,17 @@ namespace FedAndFound.Game.Field
                         _deco.SetTile(pos, tiles.Deco[rng.Next(tiles.Deco.Length)]);
                 }
 
+            // 섬 아래쪽 절벽: 열마다 가장 낮은 땅 밑으로 3칸
+            for (int x = FieldLayout.MinX; x <= FieldLayout.MaxX; x++)
+            {
+                int low = int.MaxValue;
+                for (int y = FieldLayout.MinY; y <= FieldLayout.MaxY; y++) if (InIsland(x, y, run.Stage)) { low = y; break; }
+                if (low == int.MaxValue) continue;
+                _ground.SetTile(new Vector3Int(x, low - 1, 0), tiles.Cliff);
+                _ground.SetTile(new Vector3Int(x, low - 2, 0), tiles.CliffDark);
+                if ((x & 1) == 0) _ground.SetTile(new Vector3Int(x, low - 3, 0), tiles.CliffDark); // 들쭉날쭉한 밑동
+            }
+
             foreach (var m in _markers.Values) Destroy(m.Ring.gameObject);
             _markers.Clear();
             for (int row = 1; row < FieldLayout.BossRow; row++)
@@ -186,6 +208,42 @@ namespace FedAndFound.Game.Field
                 AddMarker(row, NodeType.Event, tiles);
             }
             AddMarker(FieldLayout.BossRow, NodeType.Boss, tiles);
+        }
+
+        /// <summary>떠 있는 섬의 모양: 폭이 줄마다 물결치고 위·아래 끝이 둥글게 좁아진다. 길(x ±3)은 항상 안쪽.</summary>
+        static bool InIsland(int x, int y, int stage)
+        {
+            const int bottom = -3, top = FieldLayout.BossRow * FieldLayout.RowSpacing + 3;
+            if (y < bottom || y > top) return false;
+            float p = stage * 1.7f;
+            float half = 7.5f + 1.2f * Mathf.Sin(y * 0.55f + p) + 0.8f * Mathf.Sin(y * 1.3f + p * 2f);
+            if (y < bottom + 2) half -= (bottom + 2 - y) * 1.8f;
+            if (y > top - 2) half -= (y - (top - 2)) * 1.8f;
+            return Mathf.Abs(x + 0.4f * Mathf.Sin(y * 0.4f + p)) <= Mathf.Max(4.2f, half);
+        }
+
+        void BuildClouds(int stage)
+        {
+            if (_clouds != null) Destroy(_clouds.gameObject);
+            _clouds = new GameObject("Clouds").transform;
+            _clouds.SetParent(_world.transform, false);
+            var rng = new System.Random(stage * 31 + 5);
+            for (int i = 0; i < 16; i++)
+            {
+                var cloud = new GameObject("Cloud").transform;
+                cloud.SetParent(_clouds, false);
+                cloud.localPosition = new Vector3(-16 + (float)rng.NextDouble() * 32, -9 + i * 2.3f, 0);
+                for (int k = 0; k < 4; k++) // 동그라미 4개를 겹쳐 뭉게구름
+                {
+                    var puff = new GameObject("Puff").AddComponent<SpriteRenderer>();
+                    puff.transform.SetParent(cloud, false);
+                    puff.sprite = BattleView.BattleStageView.CircleSprite; puff.sortingOrder = -20;
+                    puff.color = new Color(1, 1, 1, 0.85f - k * 0.05f);
+                    float s = 1.2f + (float)rng.NextDouble() * 1.2f;
+                    puff.transform.localPosition = new Vector3(k * 0.9f - 1.3f, (k % 2) * 0.35f, 0);
+                    puff.transform.localScale = new Vector3(s, s * 0.7f, 1);
+                }
+            }
         }
 
         static bool NearPath(Vector2Int c, HashSet<Vector2Int> path)
@@ -202,14 +260,31 @@ namespace FedAndFound.Game.Field
             var go = new GameObject($"Node_{row}_{type}");
             go.transform.SetParent(_world.transform, false);
             go.transform.localPosition = CellPos(cell);
+            // 레퍼런스처럼 둥근 돌 발판. 이벤트는 어두운 돌 + "?", 보스는 붉은 돌 + 붉은 기운 + "보스" 깃발
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = TerrainTiles.Circle(32, Color.white, new Color(0.1f, 0.1f, 0.1f));
+            sr.sprite = TerrainTiles.StoneDisc();
             sr.sortingOrder = 10;
-            float scale = type == NodeType.Boss ? 1.5f : 1.05f;
+            float scale = type == NodeType.Boss ? 1.6f : 1.15f;
             go.transform.localScale = Vector3.one * scale;
-            var label = NewText(go.transform, "", new Vector3(0, 0, 0), type == NodeType.Boss ? 18 : 22, Color.white, 11);
+            var glow = new GameObject("Glow").AddComponent<SpriteRenderer>();
+            glow.transform.SetParent(go.transform, false);
+            glow.sprite = BattleView.BattleStageView.GlowSprite; glow.sortingOrder = 9;
+            glow.transform.localScale = new Vector3(2.2f, 1.6f, 1);
+            var label = NewText(go.transform, "", new Vector3(0, 0.08f, 0), type == NodeType.Event ? 26 : 16, Color.white, 11);
             label.transform.localScale = Vector3.one / scale;
-            _markers[cell] = new NodeMarker { Row = row, Type = type, Ring = sr, Label = label };
+            if (type == NodeType.Boss)
+            {
+                var banner = new GameObject("Banner").AddComponent<SpriteRenderer>();
+                banner.transform.SetParent(go.transform, false);
+                banner.sprite = UI.UISkin.Rounded; banner.drawMode = SpriteDrawMode.Sliced;
+                banner.size = new Vector2(1.3f, 0.42f);
+                banner.color = new Color(0.72f, 0.12f, 0.12f);
+                banner.sortingOrder = 12;
+                banner.transform.localPosition = new Vector3(0, 0.9f, 0);
+                var bt = NewText(banner.transform, "보스", Vector3.zero, 20, Color.white, 13);
+                bt.transform.localScale = Vector3.one / scale;
+            }
+            _markers[cell] = new NodeMarker { Row = row, Type = type, Ring = sr, Glow = glow, Label = label };
         }
 
         void RefreshMarkers()
@@ -222,15 +297,16 @@ namespace FedAndFound.Game.Field
                 bool visited = _visited.Contains(kv.Key);
                 Color baseC = m.Type switch
                 {
-                    NodeType.Mob => new Color(0.85f, 0.45f, 0.25f),
-                    NodeType.Event => new Color(0.55f, 0.4f, 0.85f),
-                    _ => new Color(0.75f, 0.15f, 0.2f),
+                    NodeType.Mob => new Color(1f, 0.96f, 0.88f),      // 밝은 돌
+                    NodeType.Event => new Color(0.3f, 0.27f, 0.25f),   // 어두운 돌 + ?
+                    _ => new Color(0.75f, 0.25f, 0.22f),               // 붉은 돌
                 };
-                // 다음 줄의 열린 노드 = 밝게(깜빡임은 Update), 지나온 노드 = 흐리게, 닫힌 노드 = 회색
-                m.Ring.color = open ? baseC : visited ? Color.Lerp(baseC, Color.gray, 0.6f) : new Color(0.35f, 0.35f, 0.38f, 0.85f);
-                string name = m.Type switch { NodeType.Mob => "몹", NodeType.Event => "?", _ => "보스" };
-                m.Label.text = name; // 나눔고딕에 ✓ 같은 기호가 없어 글자만 쓴다
-                m.Label.color = open || visited ? Color.white : new Color(0.75f, 0.75f, 0.75f);
+                // 다음 줄의 열린 노드 = 밝게 + 금빛 기운(맥동은 Update), 지나온 노드 = 흐리게, 닫힌 노드 = 어둡게
+                m.Ring.color = open ? baseC : visited ? Color.Lerp(baseC, new Color(0.6f, 0.6f, 0.6f), 0.5f) : Color.Lerp(baseC, new Color(0.25f, 0.25f, 0.28f), 0.6f);
+                m.Glow.color = m.Type == NodeType.Boss ? new Color(0.9f, 0.1f, 0.1f, open ? 0.7f : 0.3f)
+                             : open ? new Color(1f, 0.85f, 0.3f, 0.6f) : new Color(0, 0, 0, 0);
+                m.Label.text = m.Type switch { NodeType.Mob => visited ? "" : "몹", NodeType.Event => "?", _ => "" }; // 나눔고딕에 ✓ 같은 기호가 없어 글자만 쓴다
+                m.Label.color = m.Type == NodeType.Mob ? new Color(0.4f, 0.3f, 0.2f) : Color.white;
             }
         }
 
@@ -245,9 +321,16 @@ namespace FedAndFound.Game.Field
             // 열린 노드는 살짝 맥동시켜 "여기로 가라"는 신호를 준다
             float pulse = 1f + 0.08f * Mathf.Sin(Time.time * 5f);
             var options = _gm.Run.NodeOptions();
+            if (_clouds != null)
+                foreach (Transform c in _clouds)
+                {
+                    var p = c.localPosition; p.x += Time.deltaTime * 0.25f; if (p.x > 17f) p.x = -17f; c.localPosition = p; // 구름이 흘러간다
+                }
+            // 파티 말: 걸을 때는 통통, 서 있을 때는 숨쉬기
+            _playerBody.transform.localPosition = new Vector3(0, -0.4f + (Walking ? Mathf.Abs(Mathf.Sin(Time.time * 14f)) * 0.12f : Mathf.Sin(Time.time * 2f) * 0.03f), 0);
             foreach (var m in _markers.Values)
             {
-                float baseScale = m.Type == NodeType.Boss ? 1.5f : 1.05f;
+                float baseScale = m.Type == NodeType.Boss ? 1.6f : 1.15f;
                 bool open = m.Row == NextRow && options.Contains(m.Type);
                 m.Ring.transform.localScale = Vector3.one * baseScale * (open ? pulse : 1f);
             }
@@ -321,6 +404,7 @@ namespace FedAndFound.Game.Field
             {
                 var from = _player.localPosition;
                 var to = CellPos(c);
+                if (Mathf.Abs(to.x - from.x) > 0.01f) _playerBody.flipX = to.x < from.x; // 가는 방향을 본다
                 for (float t = 0; t < StepTime; t += Time.deltaTime)
                 {
                     _player.localPosition = Vector3.Lerp(from, to, t / StepTime);
@@ -328,6 +412,7 @@ namespace FedAndFound.Game.Field
                 }
                 _player.localPosition = to;
                 _cell = c;
+                Audio.SoundManager.Play(Audio.Sfx.Step, 0.5f);
                 // 경로 중간에 열린 노드를 밟아도 거기서 진입한다(키보드 이동과 동일한 규칙)
                 if (IsOpenNode(c)) { _walk = null; TryEnter(c); yield break; }
             }
@@ -348,6 +433,7 @@ namespace FedAndFound.Game.Field
         {
             if (!FieldLayout.TryGetNode(c, out _, out var type) || !IsOpenNode(c)) return;
             _visited.Add(c);
+            Audio.SoundManager.Play(Audio.Sfx.Node);
             try { _gm.EnterNode(type); }
             catch (Exception e) { Debug.LogError($"[FieldView] 노드 진입 실패: {e.Message}"); }
         }

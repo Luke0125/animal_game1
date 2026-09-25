@@ -68,6 +68,30 @@ namespace FedAndFound.Game.UI
             return r - Mathf.Sqrt((fx - cx) * (fx - cx) + (fy - cy) * (fy - cy));
         }
 
+        static readonly System.Collections.Generic.Dictionary<int, Sprite> Gems = new System.Collections.Generic.Dictionary<int, Sprite>();
+
+        /// <summary>원석 아이콘(도감·버튼): 각진 보석 모양 + 밝은 면·반짝임. 식성별 색.</summary>
+        public static Sprite Gem(Color c, int key)
+        {
+            if (Gems.TryGetValue(key, out var s)) return s;
+            const int n = 24;
+            var px = new Color[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = Mathf.Abs(x - 11.5f), dy = y - 11.5f;
+                    bool inside = dy >= 0 ? dx + dy * 1.1f <= 10.5f : dx + (-dy) * 0.55f <= 9.5f && dy > -11; // 위는 뾰족, 아래는 길쭉한 보석
+                    if (!inside) continue;
+                    bool edge = (dy >= 0 ? dx + dy * 1.1f > 9f : dx + (-dy) * 0.55f > 8f) || dy <= -10f;
+                    var col = x < 12 ? Color.Lerp(c, Color.white, 0.35f) : Color.Lerp(c, Color.black, 0.15f); // 왼쪽 밝은 면
+                    px[y * n + x] = edge ? Color.Lerp(c, Color.black, 0.45f) : col;
+                }
+            px[16 * n + 8] = px[17 * n + 8] = px[16 * n + 9] = Color.white; // 반짝임
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            tex.SetPixels(px); tex.Apply();
+            return Gems[key] = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100);
+        }
+
         static Sprite ToSprite(Color[] px, int n, int slice)
         {
             var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };

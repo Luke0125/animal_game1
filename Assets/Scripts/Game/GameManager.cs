@@ -123,7 +123,7 @@ namespace FedAndFound.Game
             StartCoroutine(PlayEvents(b.DrainEvents()));
         }
         public void DemoWinNow() { if (Animating) return; Run.CurrentBattle.DebugWinNow(); StartCoroutine(PlayEvents(Run.CurrentBattle.DrainEvents())); }
-        public void CraftGem(Diet d) { Run.CraftGem(d); Refresh(); }
+        public void CraftGem(Diet d) { if (Run.CraftGem(d)) Audio.SoundManager.Play(Audio.Sfx.Gem); Refresh(); }
 
         // ================= 전투 =================
 

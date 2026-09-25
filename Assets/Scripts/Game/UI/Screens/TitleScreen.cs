@@ -23,6 +23,7 @@ namespace FedAndFound.Game.UI.Screens
             var demo = UIFactory.Button(v, $"데모 모드: {(gm.DemoMode ? "ON" : "OFF")}", gm.ToggleDemoMode,
                 bg: gm.DemoMode ? new Color(0.45f, 0.2f, 0.45f) : Theme.PanelLight, fontSize: 19);
             UIFactory.Tooltip(demo, "발표 5분 시연용: 맵·전투 화면에 빠른 진행 버튼(보라색)이 나온다.\n순서는 docs/DEMO_SCRIPT.md");
+            UIFactory.Button(v, $"소리: {(Audio.SoundManager.Muted ? "꺼짐" : "켜짐")}  (M 키)", () => { Audio.SoundManager.ToggleMute(); gm.Refresh(); }, fontSize: 19);
             UIFactory.Button(v, "종료", gm.QuitGame, fontSize: 19);
         }
     }
