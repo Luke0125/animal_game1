@@ -95,7 +95,6 @@ namespace FedAndFound.Core
             Desc("hedgehog", "켜 두는 동안 맞으면 받은 피해의 30%를 되돌려 줌 (매 라운드 배고픔 4)");
             Desc("monkey", "직전에 동료가 쓴 액티브 스킬을 따라 함 (배고픔은 자기 몫 10만)");
             Desc("boar", "강한 단일 공격(계수 1.8), 대신 1턴 동안 자신 방어 -20%");
-            Desc(GuestId, "자신의 배고픔 5를 써서 동료 1마리 HP를 최대치의 20% 회복");
 
             // ===== 홀로서기 (§4.4 확장, 6단계 팀 결정: "스킬 변형형 + 실제 동물 특성") =====
             Solo("rabbit", new SkillData(SkillId.Burrow, "토끼굴", SkillKind.Active, 5, SkillTarget.None, 0,
@@ -124,6 +123,7 @@ namespace FedAndFound.Core
                 "HP 15% 회복 + 방어 +30%(2턴), 방어↓ 해제"), "멧돼지는 진흙 목욕으로 몸을 식히고 보호한다");
 
             Add(GuestId, "사슴", Diet.Herbivore, Size.Medium, 6, 90, 9, 8, 12, new SkillData(SkillId.Graze, "풀 뜯기", SkillKind.Active, 5, SkillTarget.Ally), roster: false);
+            Desc(GuestId, "자신의 배고픔 5를 써서 동료 1마리 HP를 최대치의 20% 회복"); // 사슴은 Add 뒤에 (먼저 부르면 키 없음 예외)
         }
 
         static void Add(string id, string name, Diet diet, Size size, int rank, int hp, int atk, int def, int pur, SkillData skill, bool roster = true)
