@@ -49,7 +49,9 @@ namespace FedAndFound.Game.BattleView
             // 뒤쪽 장식(나무·선인장 등) — 지평선 줄에만, 조금 어둡게
             for (int i = 0; i < 12; i++)
             {
-                var d = Quad(root.transform, "Deco", tiles.Deco[rng.Next(tiles.Deco.Length)].sprite, -70);
+                int k = rng.Next(tiles.Deco.Length);
+                if (t == Terrain.Swamp && k == 1) k = 0; // 연잎(물웅덩이)은 지평선에 세우면 둥근 판처럼 보여서 갈대로 대신
+                var d = Quad(root.transform, "Deco", tiles.Deco[k].sprite, -70);
                 d.color = new Color(0.78f, 0.8f, 0.82f);
                 float s = 1.6f + (float)rng.NextDouble() * 0.8f;
                 d.transform.localPosition = new Vector3(-10 + i * 1.8f + (float)rng.NextDouble(), -0.25f + (float)rng.NextDouble() * 0.3f, 0);
