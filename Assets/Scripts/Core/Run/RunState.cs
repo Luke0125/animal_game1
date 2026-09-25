@@ -292,6 +292,46 @@ namespace FedAndFound.Core
             BeginStage(Stage + 1);
         }
 
+        // ================= 데모 모드 / 테스트 전용 (7단계) =================
+        // 발표 5분 시연·검증용 치트. 일반 플레이 흐름에서는 호출하지 않는다(UI는 데모 모드에서만 노출).
+
+        public void DebugAddFragments(int n)
+        {
+            foreach (Diet d in new[] { Diet.Herbivore, Diet.Carnivore, Diet.Omnivore }) Fragments[d] += n;
+            Log.Add($"[데모] 조각 +{n}씩");
+        }
+
+        public void DebugAddFood(int n) { Meat += n; Fruit += n; Log.Add($"[데모] 고기·열매 +{n}"); }
+
+        public void DebugHealAll()
+        {
+            foreach (var a in Party) { a.Hp = a.MaxHp; a.Hunger = Balance.MaxHunger; }
+            Log.Add("[데모] 전원 HP·배고픔 회복");
+        }
+
+        /// <summary>맵에서 남은 이동을 건너뛰고 보스 노드만 열리게 한다.</summary>
+        public void DebugSkipToBoss() { Expect(RunPhase.Map); NodesMoved = NodesBeforeBoss; Log.Add("[데모] 보스 앞으로 이동"); }
+
+        /// <summary>목표 스테이지로 바로 이동. 건너뛴 스테이지마다 정상 진행처럼 1마리가 집으로 가고(슬롯 +1) 유물 2개를 받는다.</summary>
+        public void DebugJumpToStage(int stage)
+        {
+            if (Phase != RunPhase.Map && Phase != RunPhase.RelicEquip) throw new InvalidOperationException("맵/유물 장착 화면에서만 가능");
+            if (stage <= Stage || stage > FinalStage) return;
+            while (Stage < stage)
+            {
+                if (Stage == 0 && Guest != null) { Party.Remove(Guest); Guest = null; RelicSlots++; GrantRelics(1); }
+                else if (Stage > 0)
+                {
+                    var leave = Party[Party.Count - 1];
+                    Party.Remove(leave); RelicSlots++; GrantRelics(2);
+                    Log.Add($"[데모] {leave.Name}을(를) 집으로 보냈다");
+                }
+                Stage++;
+            }
+            foreach (var a in Party) { a.Hp = a.MaxHp; a.ResetBattleState(); }
+            BeginStage(stage);
+        }
+
         // ================= 유틸 =================
 
         void Expect(RunPhase p) { if (Phase != p) throw new InvalidOperationException($"현재 단계는 {Phase}, 필요: {p}"); }

@@ -660,6 +660,29 @@ namespace FedAndFound.Core
             }
         }
 
+        // ================= 데모 모드 / 테스트 전용 (7단계) =================
+
+        /// <summary>적 전원 HP를 10%로 → 정화 확률이 높아져 정화·물리치기를 바로 시연할 수 있다.</summary>
+        public void DebugWeakenEnemies()
+        {
+            foreach (var e in Enemies.Where(x => x.Active)) e.Hp = Math.Max(1, e.MaxHp / 10);
+            Log(BattleEventType.Status, null, null, 0, "[데모] 적 HP 10%");
+        }
+
+        /// <summary>keep만 남기고 아군 기절 → 홀로서기 시연.</summary>
+        public void DebugKoAlliesExcept(Unit keep)
+        {
+            foreach (var a in Allies.Where(x => x != keep && x.Active)) { a.Hp = 0; a.SustainOn = false; }
+            Log(BattleEventType.Status, keep, null, 0, $"[데모] {keep} 혼자 남았다");
+        }
+
+        /// <summary>남은 적을 전부 물리친 것으로 처리(보상 포함).</summary>
+        public void DebugWinNow()
+        {
+            foreach (var e in Enemies.Where(x => x.Active).ToList()) RemoveEnemy(e, EnemyFate.Defeated, $"[데모] {e}을(를) 물리쳤다");
+            CheckOutcome();
+        }
+
         void Log(BattleEventType t, Unit a, Unit tg, int v, string text) =>
             _events.Add(new BattleEvent { Type = t, Actor = a, Target = tg, Value = v, Text = text });
     }

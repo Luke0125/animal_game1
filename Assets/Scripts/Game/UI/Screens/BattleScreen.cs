@@ -19,6 +19,7 @@ namespace FedAndFound.Game.UI.Screens
 
             UIFactory.Label(layout, $"{gm.Run.Stage}스테이지 라운드 {battle.Round}", 22, TextAnchor.MiddleCenter, bold: true);
             UIFactory.Label(layout, MapScreen.SynergySummary(gm.Run, battle), 15, TextAnchor.MiddleCenter, Theme.Selected);
+            if (gm.CheatsEnabled && battle.Outcome == BattleOutcome.Ongoing) DemoRow(layout, gm, battle);
             TurnQueueRow(layout, battle);
 
             var domain = TargetDomain(gm, battle);
@@ -84,6 +85,17 @@ namespace FedAndFound.Game.UI.Screens
                 UIFactory.Label(row, label, 18, TextAnchor.MiddleLeft, e.Active ? Theme.Text : Theme.TextDim);
                 UIFactory.Bar(row, e.HpRatio, e.HpRatio > 0.3f ? Theme.HpBar : Theme.HpBarLow);
             }
+        }
+
+        /// <summary>데모 모드(7단계): 정화 시연(적 HP 10%) · 홀로서기 시연(동료 기절) · 즉시 승리.</summary>
+        static void DemoRow(Transform parent, GameManager gm, Battle battle)
+        {
+            var row = UIFactory.HGroup(parent, 8, new RectOffset(300, 300, 0, 0));
+            UIFactory.FixedHeight(row, 34);
+            var demo = new Color(0.45f, 0.2f, 0.45f);
+            UIFactory.Button(row, "[데모] 적 HP 10%", gm.DemoWeakenEnemies, !gm.Animating, bg: demo, fontSize: 14);
+            UIFactory.Button(row, "[데모] 혼자 남기기", gm.DemoGoSolo, !gm.Animating && battle.Allies.Count(a => a.Active) > 1, bg: demo, fontSize: 14);
+            UIFactory.Button(row, "[데모] 즉시 승리", gm.DemoWinNow, !gm.Animating, bg: demo, fontSize: 14);
         }
 
         /// <summary>적의 스킬 상태 표시(5단계 적 AI) — 매복처럼 예고가 있어야 방어로 대응할 수 있다.</summary>

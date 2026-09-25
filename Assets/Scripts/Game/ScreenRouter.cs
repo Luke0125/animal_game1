@@ -23,7 +23,17 @@ namespace FedAndFound.Game
             for (int i = _root.childCount - 1; i >= 0; i--)
                 Destroy(_root.GetChild(i).gameObject);
 
-            if (_gm.Run == null) { SpeciesSelectScreen.Build(_root, _gm); return; }
+            if (_gm.Run == null)
+            {
+                switch (_gm.Front)
+                {
+                    case FrontScreen.Title: TitleScreen.Build(_root, _gm); break;
+                    case FrontScreen.Intro: IntroScreen.Build(_root, _gm); break;
+                    case FrontScreen.HowTo: HowToScreen.Build(_root, _gm); break;
+                    default: SpeciesSelectScreen.Build(_root, _gm); break;
+                }
+                return;
+            }
 
             switch (_gm.Run.Phase)
             {

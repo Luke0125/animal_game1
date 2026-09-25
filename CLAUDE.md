@@ -13,7 +13,8 @@
   - `GameManager.cs` RunState 보유 + 상태 변경 메서드(전부 끝에 `Refresh()` 호출) + `OnChanged` 이벤트
   - `ScreenRouter.cs` `OnChanged`마다 화면 전체를 지우고 `Run.Phase`에 맞는 `UI/Screens/*` 화면을 다시 그림
   - `UI/UIFactory.cs` 코드로 uGUI 조립(Panel/Label/Button/Bar/VGroup/HGroup/ScrollList). 새 화면도 이것만 쓴다.
-  - `UI/Screens/*` 화면 8개: 종 선택/유물 장착/맵/전투/전투 후/이벤트/작별/결과
+  - `UI/Screens/*` 화면 11개: 타이틀/인트로/게임 방법(런 전, `GameManager.Front`) + 종 선택/유물 장착/맵/전투/전투 후/이벤트/작별/결과
+  - 데모 모드(7단계): 타이틀 토글 또는 에디터/개발 빌드 → 맵·전투에 치트 패널. 치트는 Core `Debug*` 메서드만 호출. 시연 순서 `docs/DEMO_SCRIPT.md`
   - `Field/*` 탑뷰 필드(4단계): `FieldView`(월드 Tilemap+파티 말, Map 단계에서만 표시, 걸어서 노드 진입), `FieldLayout`(칸 좌표·길·BFS), `TerrainTiles`(지형 4종 타일을 코드로 생성). 맵 화면 HUD는 가운데를 비워 필드가 보이게 한다.
 - `.claude/skills/` — Unity 공식 플러그인에서 이 프로젝트에 필요한 스킬 5개만 발췌(uGUI, unity-cli, 픽셀퍼펙트, 타일맵, TMP 한글폰트). 한글 폰트: `Assets/Resources/Fonts/NanumGothic.ttf`(런타임 Resources.Load용).
 - `docs/UI_REFERENCE.md` — 참고 화면 요약. `docs/REFERENCES.md` — 사용 에셋/AI 출처(추가 시 갱신 필수).

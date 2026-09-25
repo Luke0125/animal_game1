@@ -40,6 +40,7 @@ namespace FedAndFound.Game.UI.Screens
             UIFactory.Label(layout, $"선택됨: {_selected.Count}/3", 20, TextAnchor.MiddleCenter, Theme.TextDim);
             UIFactory.Button(layout, "시작", () => gm.StartRun(_selected.ToList(), _includeTutorial),
                 interactable: _selected.Count == 3, bg: Theme.Accent, fontSize: 26);
+            UIFactory.Button(layout, "타이틀로", () => gm.ShowFront(FrontScreen.Title), fontSize: 18);
         }
 
         static void Toggle(string id)

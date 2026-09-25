@@ -17,6 +17,7 @@ namespace FedAndFound.Game.UI.Screens
             foreach (var line in gm.Run.Log) UIFactory.Label(log, line, 16, TextAnchor.MiddleLeft, Theme.TextDim);
 
             UIFactory.Button(layout, "새 게임", gm.ResetToSpeciesSelect, bg: Theme.Accent, fontSize: 24);
+            UIFactory.Button(layout, "타이틀로", gm.ResetToTitle, fontSize: 20);
         }
     }
 }

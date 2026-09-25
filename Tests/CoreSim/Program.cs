@@ -73,6 +73,7 @@ static class Program
         EnemySkillTests();
         SimultaneousKoTest();
         SoloTests();
+        DemoTests();
         EventTests();
     }
 
@@ -244,6 +245,35 @@ static class Program
         b = SoloBattle("snake", out var sn, out _); sn.Hp = 20; sn.PoisonTurns = 3; sn.PoisonDmg = 1;
         b.Submit(new BattleAction(ActionType.Skill));
         Check(sn.Hp > 20 && sn.PoisonTurns == 0, "허물 벗기: 회복 + 독 해제");
+    }
+
+    /// <summary>데모 모드 치트가 정상 진행과 같은 상태를 만드는지 (발표 중 멈추면 안 됨).</summary>
+    static void DemoTests()
+    {
+        var run = new RunState(new[] { "lion", "rabbit", "fox" }, 5, skipTutorial: false); // 0스테이지부터
+        run.DebugJumpToStage(3);
+        Check(run.Stage == 3 && run.Party.Count == 1 && run.Guest == null && run.Phase == RunPhase.RelicEquip, "데모: 3스테이지로 바로 (파티 1마리)");
+        Check(run.RelicSlots == 3 && run.OwnedRelics.Count >= 5, "데모: 건너뛴 만큼 유물 슬롯·유물 지급");
+        run.ConfirmEquip();
+        run.DebugSkipToBoss();
+        Check(run.NodeOptions().SequenceEqual(new[] { NodeType.Boss }), "데모: 보스 앞으로");
+        run.EnterNode(NodeType.Boss);
+        run.CurrentBattle.DebugWinNow();
+        Check(run.CurrentBattle.Outcome == BattleOutcome.Victory, "데모: 즉시 승리");
+        run.FinishBattle();
+        Check(run.Phase == RunPhase.Victory, "데모: 3스테이지 보스 승리 → 게임 클리어");
+
+        var r2 = new RunState(new[] { "lion", "rabbit", "fox" }, 6, skipTutorial: true);
+        r2.ConfirmEquip();
+        r2.DebugAddFragments(3);
+        Check(r2.CanCraftGem(Diet.Carnivore) && r2.CanCraftGem(Diet.Herbivore) && r2.CanCraftGem(Diet.Omnivore), "데모: 조각 +3 → 원석 3종 제작 가능");
+        r2.EnterNode(NodeType.Mob);
+        var b = r2.CurrentBattle;
+        var keep = b.CurrentActor ?? b.Allies[0];
+        b.DebugKoAlliesExcept(keep);
+        Check(b.IsSolo(keep), "데모: 동료 기절 → 홀로서기");
+        b.DebugWeakenEnemies();
+        Check(b.Enemies.Where(e => e.Active).All(e => e.HpRatio <= 0.11f), "데모: 적 HP 10%");
     }
 
     static void EnemySkillTests()
